@@ -13,9 +13,19 @@ import { BoletoModule } from './boleto/boleto.module';
 import { IncidenteModule } from './incidente/incidente.module';
 import { IncidenteBusModule } from './incidente_bus/incidente_bus.module';
 import { FotoModule } from './foto/foto.module';
+import { RutaModule } from './ruta/ruta.module';
+import { ParaderoModule } from './paradero/paradero.module';
+import { NodoModule } from './nodo/nodo.module';
+import { HistorialModule } from './historial/historial.module';
+import { CiudadanoModule } from './ciudadano/ciudadano.module';
+import { DireccionModule } from './direccion/direccion.module';
+import { GrupoModule } from './grupo/grupo.module';
+import { PersonaModule } from './persona/persona.module';
+import { MensajeModule } from './mensaje/mensaje.module';
+import { DestinatarioModule } from './destinatario/destinatario.module';
 
 @Module({
-  imports: [EmpresaModule, BusModule, GpsModule, ConductorModule, TurnoModule, ProgramacionModule, MetodoPagoModule, MetodoPagoCiudadanoModule, BoletoModule, IncidenteModule, IncidenteBusModule, FotoModule],
+  imports: [EmpresaModule, BusModule, GpsModule, ConductorModule, TurnoModule, ProgramacionModule, MetodoPagoModule, MetodoPagoCiudadanoModule, BoletoModule, IncidenteModule, IncidenteBusModule, FotoModule, RutaModule, ParaderoModule, NodoModule, HistorialModule, CiudadanoModule, DireccionModule, GrupoModule, PersonaModule, MensajeModule, DestinatarioModule],
   controllers: [AppController],
   providers: [AppService],
 })
