@@ -23,9 +23,11 @@ import { GrupoModule } from './grupo/grupo.module';
 import { PersonaModule } from './persona/persona.module';
 import { MensajeModule } from './mensaje/mensaje.module';
 import { DestinatarioModule } from './destinatario/destinatario.module';
+import { RutaParaderoModule } from './ruta_paradero/ruta_paradero.module';
+import { ValidacionModule } from './validacion/validacion.module';
 
 @Module({
-  imports: [EmpresaModule, BusModule, GpsModule, ConductorModule, TurnoModule, ProgramacionModule, MetodoPagoModule, MetodoPagoCiudadanoModule, BoletoModule, IncidenteModule, IncidenteBusModule, FotoModule, RutaModule, ParaderoModule, NodoModule, HistorialModule, CiudadanoModule, DireccionModule, GrupoModule, PersonaModule, MensajeModule, DestinatarioModule],
+  imports: [EmpresaModule, BusModule, GpsModule, ConductorModule, TurnoModule, ProgramacionModule, MetodoPagoModule, MetodoPagoCiudadanoModule, BoletoModule, IncidenteModule, IncidenteBusModule, FotoModule, RutaModule, ParaderoModule, NodoModule, HistorialModule, CiudadanoModule, DireccionModule, GrupoModule, PersonaModule, MensajeModule, DestinatarioModule, RutaParaderoModule, ValidacionModule],
   controllers: [AppController],
   providers: [AppService],
 })
