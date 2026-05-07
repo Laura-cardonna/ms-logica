@@ -1,11 +1,9 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { RutaParadero } from './entities/ruta_paradero.entity';
+import { RutaParaderoService } from './ruta_paradero.service';
+import { RutaParaderoController } from './ruta_paradero.controller';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([RutaParadero])],
-    controllers: [],
-    providers: [],
-    exports: [TypeOrmModule],
+    controllers: [RutaParaderoController],
+    providers: [RutaParaderoService],
 })
 export class RutaParaderoModule {}

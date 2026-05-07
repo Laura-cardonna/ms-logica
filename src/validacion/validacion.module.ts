@@ -1,11 +1,9 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Validacion } from './entities/validacion.entity';
+import { ValidacionService } from './validacion.service';
+import { ValidacionController } from './validacion.controller';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Validacion])],
-    controllers: [],
-    providers: [],
-    exports: [TypeOrmModule],
+    controllers: [ValidacionController],
+    providers: [ValidacionService],
 })
 export class ValidacionModule {}

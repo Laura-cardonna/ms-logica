@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
-import { DestinatarioGrupo } from 'src/mensaje/entities/destinatario_grupo.entity';
-import { GrupoPersona } from 'src/persona/entities/grupo_persona.entity';
+import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
+import { GrupoPersona } from 'src/grupo_persona/entities/grupo_persona.entity';
 
 @Entity('grupos')
 export class Grupo {
