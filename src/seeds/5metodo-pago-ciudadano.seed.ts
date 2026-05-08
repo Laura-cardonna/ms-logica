@@ -1,61 +1,71 @@
 import { DataSource } from 'typeorm';
 import { MetodoPagoCiudadano } from '../metodo_pago_ciudadano/entities/metodo_pago_ciudadano.entity';
 import { MetodoPago } from '../metodo_pago/entities/metodo_pago.entity';
+import { Ciudadano } from '../ciudadano/entities/ciudadano.entity';
 
 export async function seedMetodosPagoCiudadano(dataSource: DataSource) {
   const metodoPagoCiudadanoRepository =
     dataSource.getRepository(MetodoPagoCiudadano);
   const metodoPagoRepository = dataSource.getRepository(MetodoPago);
+  const ciudadanoRepository = dataSource.getRepository(Ciudadano);
 
+  const ciudadanos = await ciudadanoRepository.find();
   const metodosPago = await metodoPagoRepository.find();
-  if (metodosPago.length === 0) {
-    console.warn('⚠ No métodos de pago found. Run metodo-pago.seed first');
+  if (ciudadanos.length === 0 || metodosPago.length === 0) {
+    console.warn(
+      '⚠ No se encontraron ciudadanos o métodos de pago base. Ejecuta primero los otros seeds.',
+    );
     return;
   }
 
   const metodoPagoCiudadanos = [
     {
-      instrumentoId: 'TC-4111111111111111',
-      metodoPago: metodosPago[0], // Tarjeta de Débito
+      instrumentoId: 'TARJ-MARIA-001',
+      saldo: 50000,
+      estado: 'activo',
+      fechaRecarga: new Date(),
+      ciudadano: ciudadanos[0],
+      metodoPago: metodosPago[0],
     },
     {
-      instrumentoId: 'TC-5555555555554444',
-      metodoPago: metodosPago[0], // Tarjeta de Débito
+      instrumentoId: 'APP-JUAN-002',
+      saldo: 15000,
+      estado: 'activo',
+      fechaRecarga: new Date(),
+      ciudadano: ciudadanos[1] ?? ciudadanos[0],
+      metodoPago: metodosPago[1],
     },
     {
-      instrumentoId: 'TC-4532012345678910',
-      metodoPago: metodosPago[1], // Tarjeta de Crédito
+      instrumentoId: 'TARJ-SIN-SALDO',
+      saldo: 0,
+      estado: 'activo',
+      fechaRecarga: new Date(),
+      ciudadano: ciudadanos[2] ?? ciudadanos[0],
+      metodoPago: metodosPago[0],
     },
     {
-      instrumentoId: 'TC-5425233010103010',
-      metodoPago: metodosPago[1], // Tarjeta de Crédito
-    },
-    {
-      instrumentoId: 'TRANS-001-2024',
-      metodoPago: metodosPago[2], // Transferencia Bancaria
-    },
-    {
-      instrumentoId: 'TRANS-002-2024',
-      metodoPago: metodosPago[2], // Transferencia Bancaria
-    },
-    {
-      instrumentoId: 'WALLET-USER-001',
-      metodoPago: metodosPago[4], // Billetera Digital
-    },
-    {
-      instrumentoId: 'WALLET-USER-002',
-      metodoPago: metodosPago[4], // Billetera Digital
+      instrumentoId: 'TARJ-INACTIVA',
+      saldo: 100000,
+      estado: 'inactivo',
+      fechaRecarga: new Date(),
+      ciudadano: ciudadanos[0],
+      metodoPago: metodosPago[0],
     },
   ];
 
+  let count = 0;
   for (const metodoPagoCiudadano of metodoPagoCiudadanos) {
     const existing = await metodoPagoCiudadanoRepository.findOne({
       where: { instrumentoId: metodoPagoCiudadano.instrumentoId },
     });
+
     if (!existing) {
-      await metodoPagoCiudadanoRepository.save(metodoPagoCiudadano);
+      const nuevoMetodo =
+        metodoPagoCiudadanoRepository.create(metodoPagoCiudadano);
+      await metodoPagoCiudadanoRepository.save(nuevoMetodo);
+      count++;
     }
   }
 
-  console.log('✓ Métodos de Pago Ciudadano seeded');
+  console.log(`✓ Métodos de Pago Ciudadano seeded (${count} nuevos)`);
 }

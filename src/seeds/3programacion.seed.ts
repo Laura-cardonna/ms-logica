@@ -22,56 +22,67 @@ export async function seedProgramaciones(dataSource: DataSource) {
     {
       fecha: today,
       horaSalida: '06:00',
+      estado: 'activa',
       bus: buses[0],
     },
     {
       fecha: today,
       horaSalida: '08:30',
+      estado: 'programada',
       bus: buses[0],
     },
     {
       fecha: today,
       horaSalida: '14:00',
+      estado: 'activa',
       bus: buses[1],
     },
     {
       fecha: today,
       horaSalida: '16:30',
+      estado: 'programada',
       bus: buses[1],
     },
     {
       fecha: tomorrow,
       horaSalida: '06:00',
+      estado: 'programada',
       bus: buses[2],
     },
     {
       fecha: tomorrow,
       horaSalida: '09:00',
+      estado: 'programada',
       bus: buses[2],
     },
     {
       fecha: tomorrow,
       horaSalida: '13:30',
+      estado: 'programada',
       bus: buses[3],
     },
     {
       fecha: tomorrow,
       horaSalida: '17:00',
+      estado: 'programada',
       bus: buses[3],
     },
     {
       fecha: dayAfter,
       horaSalida: '07:00',
+      estado: 'programada',
       bus: buses[4],
     },
     {
       fecha: dayAfter,
       horaSalida: '10:30',
+      estado: 'programada',
       bus: buses[5],
     },
     {
       fecha: dayAfter,
       horaSalida: '15:00',
+      estado: 'programada',
       bus: buses[6],
     },
   ];

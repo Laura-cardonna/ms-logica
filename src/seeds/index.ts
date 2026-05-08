@@ -4,11 +4,13 @@ import { seedMetodosPago } from './4metodo-pago.seed';
 import { seedConductores } from './conductor.seed';
 import { seedBuses } from './2bus.seed';
 import { seedGps } from './gps.seed';
+import { seedCiudadanos } from './ciudadano.seed';
 import { seedProgramaciones } from './3programacion.seed';
 import { seedTurnos } from './turno.seed';
 import { seedIncidentes } from './incidente.seed';
 import { seedIncidentesBus } from './incidente-bus.seed';
 import { seedMetodosPagoCiudadano } from './5metodo-pago-ciudadano.seed';
+import { seedParaderos } from './paradero.seed';
 import { seedBoletos } from './boleto.seed';
 import { seedFotos } from './foto.seed';
 
@@ -24,6 +26,8 @@ export async function runSeeds(dataSource: DataSource) {
 
     // Fase 2: Entidades que dependen de Fase 1
     await seedBuses(dataSource);
+    await seedCiudadanos(dataSource);
+    await seedParaderos(dataSource);
     await seedMetodosPagoCiudadano(dataSource);
 
     // Fase 3: Entidades que dependen de Fase 2
