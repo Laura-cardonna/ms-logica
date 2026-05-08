@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EmpresaModule } from './empresa/empresa.module';
@@ -30,7 +32,51 @@ import { DestinatarioGrupoModule } from './destinatario_grupo/destinatario_grupo
 import { GrupoPersonaModule } from './grupo_persona/grupo_persona.module';
 
 @Module({
-  imports: [EmpresaModule, BusModule, GpsModule, ConductorModule, TurnoModule, ProgramacionModule, MetodoPagoModule, MetodoPagoCiudadanoModule, BoletoModule, IncidenteModule, IncidenteBusModule, FotoModule, RutaModule, ParaderoModule, NodoModule, HistorialModule, CiudadanoModule, DireccionModule, GrupoModule, PersonaModule, MensajeModule, DestinatarioModule, RutaParaderoModule, ValidacionModule, DestinatarioPersonaModule, DestinatarioGrupoModule, GrupoPersonaModule],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    TypeOrmModule.forRoot({
+      type: 'mysql',
+      connectorPackage: 'mysql2',
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT),
+      username: process.env.DB_USER,
+      password: process.env.DB_PASS,
+      database: process.env.DB_NAME,
+      entities: ['dist/**/*.entity.js'],
+      migrations: ['dist/migrations/*.js'],
+      synchronize: false,
+      logging: process.env.NODE_ENV === 'development',
+    }),
+    EmpresaModule,
+    BusModule,
+    GpsModule,
+    ConductorModule,
+    TurnoModule,
+    ProgramacionModule,
+    MetodoPagoModule,
+    MetodoPagoCiudadanoModule,
+    BoletoModule,
+    IncidenteModule,
+    IncidenteBusModule,
+    FotoModule,
+    RutaModule,
+    ParaderoModule,
+    NodoModule,
+    HistorialModule,
+    CiudadanoModule,
+    DireccionModule,
+    GrupoModule,
+    PersonaModule,
+    MensajeModule,
+    DestinatarioModule,
+    RutaParaderoModule,
+    ValidacionModule,
+    DestinatarioPersonaModule,
+    DestinatarioGrupoModule,
+    GrupoPersonaModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
