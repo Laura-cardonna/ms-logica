@@ -15,20 +15,38 @@ import { BoletoModule } from './boleto/boleto.module';
 import { IncidenteModule } from './incidente/incidente.module';
 import { IncidenteBusModule } from './incidente_bus/incidente_bus.module';
 import { FotoModule } from './foto/foto.module';
+import { RutaModule } from './ruta/ruta.module';
+import { ParaderoModule } from './paradero/paradero.module';
+import { NodoModule } from './nodo/nodo.module';
+import { HistorialModule } from './historial/historial.module';
+import { CiudadanoModule } from './ciudadano/ciudadano.module';
+import { DireccionModule } from './direccion/direccion.module';
+import { GrupoModule } from './grupo/grupo.module';
+import { PersonaModule } from './persona/persona.module';
+import { MensajeModule } from './mensaje/mensaje.module';
+import { DestinatarioModule } from './destinatario/destinatario.module';
+import { RutaParaderoModule } from './ruta_paradero/ruta_paradero.module';
+import { ValidacionModule } from './validacion/validacion.module';
+import { DestinatarioPersonaModule } from './destinatario_persona/destinatario_persona.module';
+import { DestinatarioGrupoModule } from './destinatario_grupo/destinatario_grupo.module';
+import { GrupoPersonaModule } from './grupo_persona/grupo_persona.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     TypeOrmModule.forRoot({
       type: 'mysql',
+      connectorPackage: 'mysql2',
       host: process.env.DB_HOST,
       port: Number(process.env.DB_PORT),
       username: process.env.DB_USER,
       password: process.env.DB_PASS,
       database: process.env.DB_NAME,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: false,
-      autoLoadEntities: false,
+      synchronize: true,
+      autoLoadEntities: true,
     }),
     EmpresaModule,
     BusModule,
@@ -42,6 +60,21 @@ import { FotoModule } from './foto/foto.module';
     IncidenteModule,
     IncidenteBusModule,
     FotoModule,
+    RutaModule,
+    ParaderoModule,
+    NodoModule,
+    HistorialModule,
+    CiudadanoModule,
+    DireccionModule,
+    GrupoModule,
+    PersonaModule,
+    MensajeModule,
+    DestinatarioModule,
+    RutaParaderoModule,
+    ValidacionModule,
+    DestinatarioPersonaModule,
+    DestinatarioGrupoModule,
+    GrupoPersonaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

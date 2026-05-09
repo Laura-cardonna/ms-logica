@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { Persona } from 'src/persona/entities/persona.entity';
-import { DestinatarioPersona } from './destinatario_persona.entity';
-import { DestinatarioGrupo } from './destinatario_grupo.entity';
+import { DestinatarioPersona } from 'src/destinatario_persona/entities/destinatario_persona.entity';
+import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
 
 @Entity('mensajes')
 export class Mensaje {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { RutaService } from './ruta.service';
 import { CreateRutaDto } from './dto/create-ruta.dto';
 import { UpdateRutaDto } from './dto/update-ruta.dto';
@@ -13,8 +13,8 @@ export class RutaController {
   }
 
   @Get()
-  findAll() {
-    return this.rutaService.findAll();
+  findAll(@Query('nombre') nombre?: string) {
+    return this.rutaService.findAll(nombre);
   }
 
   @Get(':id')

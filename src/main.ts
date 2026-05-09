@@ -25,7 +25,7 @@ async function bootstrap() {
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api', app, swaggerDocument);
   
-  // Ejecutar seeders automáticamente
+ /* // Ejecutar seeders automáticamente
   const dataSource = app.get(DataSource);
   if (dataSource && dataSource.isInitialized) {
     console.log('\n🌱 Running database seeders...\n');
@@ -35,6 +35,7 @@ async function bootstrap() {
       console.error('⚠ Error running seeders:', error);
     }
   }
+  */
 
   await app.listen(process.env.PORT ?? 3000);
   console.log(`✅ Application running on port ${process.env.PORT ?? 3000}`);
