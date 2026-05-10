@@ -1,19 +1,19 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn, PrimaryColumn } from 'typeorm';
 import { Direccion } from 'src/direccion/entities/direccion.entity';
 import { MetodoPagoCiudadano } from 'src/metodo_pago_ciudadano/entities/metodo_pago_ciudadano.entity';
 
 @Entity('ciudadanos')
 export class Ciudadano {
-    @PrimaryGeneratedColumn()
-    id?: number;
+    @PrimaryColumn({ type: 'varchar', length: 100, nullable: false })
+    id?: string;
 
     @Column()
     nombre?: string;
 
-    @Column({ unique: true })
+    @Column({ nullable: true })
     cedula?: string;
 
-    @Column()
+    @Column({ nullable: true })
     telefono?: string;
 
     @Column()
@@ -22,10 +22,10 @@ export class Ciudadano {
     @Column({ name: 'fecha_nacimiento', type: 'date', nullable: true })
     fechaNacimiento?: Date;
 
-    @ManyToOne(() => Direccion, (d) => d.ciudadanos)
+    @ManyToOne(() => Direccion, (d) => d.ciudadanos, { nullable: true })
     @JoinColumn({ name: 'direccion_id' })
     direccion?: Direccion;
 
-    @OneToMany(() => MetodoPagoCiudadano, (mpc) => mpc.ciudadano)
+    @OneToMany(() => MetodoPagoCiudadano, (mpc) => mpc.ciudadano, { cascade: true })
     metodosPago?: MetodoPagoCiudadano[];
 }

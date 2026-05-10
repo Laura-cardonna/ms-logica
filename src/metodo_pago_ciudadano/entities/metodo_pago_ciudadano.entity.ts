@@ -3,15 +3,26 @@ import { MetodoPago } from 'src/metodo_pago/entities/metodo_pago.entity';
 import { Boleto } from 'src/boleto/entities/boleto.entity';
 import { Ciudadano } from 'src/ciudadano/entities/ciudadano.entity';
 
+export enum TipoInstrumento {
+  TARJETA_DEBITO = 'TARJETA_DEBITO',
+  TARJETA_CREDITO = 'TARJETA_CREDITO',
+  RECARGABLE = 'RECARGABLE',
+  APP_MOVIL = 'APP_MOVIL',
+  EFECTIVO = 'EFECTIVO',
+}
+
 @Entity('metodos_pago_ciudadano')
 export class MetodoPagoCiudadano {
     @PrimaryGeneratedColumn()
     id?: number;
 
-    @Column({ name: 'instrumento_id' })
-    instrumentoId?: string; // El número de tarjeta o ID del medio
+    @Column({ type: 'enum', enum: TipoInstrumento, default: TipoInstrumento.RECARGABLE })
+    tipoInstrumento?: TipoInstrumento;
 
-    @Column({ type: 'decimal', default: 0 })
+    @Column({ nullable: true })
+    identificadorInstrumento?: string;
+
+    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
     saldo?: number;
 
     @Column({ name: 'fecha_recarga', type: 'timestamp', nullable: true })
@@ -20,11 +31,11 @@ export class MetodoPagoCiudadano {
     @Column({ type: 'enum', enum: ['activo', 'inactivo'], default: 'activo' })
     estado?: string;
 
-    @ManyToOne(() => MetodoPago, (mp) => mp.usuariosMetodos)
+    @ManyToOne(() => MetodoPago, (mp) => mp.usuariosMetodos, { nullable: true })
     @JoinColumn({ name: 'metodo_pago_id' })
     metodoPago?: MetodoPago;
 
-    @ManyToOne(() => Ciudadano, (c) => c.metodosPago)
+    @ManyToOne(() => Ciudadano, (c) => c.metodosPago, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'ciudadano_id' })
     ciudadano?: Ciudadano;
 

@@ -8,10 +8,14 @@ export class ParaderoService {
     return 'This action adds a new paradero';
   }
 
-  findAll() {
-    return `This action returns all paradero`;
+findAll() {
+    return [
+      { id: 1, nombre: 'Estación Central', ubicacion: 'Calle 10' },
+      { id: 2, nombre: 'Paradero Norte', ubicacion: 'Av. Principal' },
+      { id: 3, nombre: 'Terminal Sur', ubicacion: 'Carrera 5' }
+    ];
   }
-
+  
   findOne(id: number) {
     return `This action returns a #${id} paradero`;
   }

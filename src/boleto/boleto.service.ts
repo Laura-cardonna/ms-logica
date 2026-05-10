@@ -12,7 +12,10 @@ import { UpdateBoletoDto } from './dto/update-boleto.dto';
 import { Boleto } from './entities/boleto.entity';
 import { Ciudadano } from 'src/ciudadano/entities/ciudadano.entity';
 import { Programacion } from 'src/programacion/entities/programacion.entity';
-import { MetodoPagoCiudadano } from 'src/metodo_pago_ciudadano/entities/metodo_pago_ciudadano.entity';
+import {
+  MetodoPagoCiudadano,
+  TipoInstrumento,
+} from 'src/metodo_pago_ciudadano/entities/metodo_pago_ciudadano.entity';
 import { Paradero } from 'src/paradero/entities/paradero.entity';
 
 @Injectable()
@@ -43,18 +46,53 @@ export class BoletoService {
     ruta: true,
   } as const;
 
-  async create(createBoletoDto: CreateBoletoDto) {
+  async create(data: {
+    bus_id: number;
+    paradero_id: number;
+    metodo_pago_id: number;
+    ciudadano_id: string;
+    nombre?: string;
+    email?: string;
+  }) {
     try {
-      const ciudadano = await this.ciudadanoRepository.findOne({
-        where: { id: createBoletoDto.ciudadano_id },
+      const {
+        bus_id,
+        paradero_id,
+        metodo_pago_id,
+        ciudadano_id,
+        nombre,
+        email,
+      } = data;
+
+      let ciudadano = await this.ciudadanoRepository.findOne({
+        where: { id: ciudadano_id },
       });
 
       if (!ciudadano) {
-        throw new NotFoundException('Ciudadano no encontrado');
+        // Only create a citizen when the token provides real name and email
+        if (!nombre || !email) {
+          throw new BadRequestException(
+            'Ciudadano no encontrado y token no proporciona nombre/email',
+          );
+        }
+
+        console.log('Creando ciudadano con datos del token:', {
+          id: ciudadano_id,
+          nombre,
+          email,
+        });
+
+        ciudadano = this.ciudadanoRepository.create({
+          id: ciudadano_id,
+          nombre,
+          email,
+        });
+
+        await this.ciudadanoRepository.save(ciudadano);
       }
 
       const paraderoAbordaje = await this.paraderoRepository.findOne({
-        where: { id: createBoletoDto.paraderoAbordaje_id },
+        where: { id: paradero_id },
       });
 
       if (!paraderoAbordaje) {
@@ -64,7 +102,7 @@ export class BoletoService {
       const programacion = await this.programacionRepository.findOne({
         where: {
           estado: 'activa',
-          bus: { id: createBoletoDto.bus_id },
+          bus: { id: bus_id },
         },
         relations: {
           bus: true,
@@ -86,19 +124,33 @@ export class BoletoService {
         throw new ConflictException('Bus lleno. Abordaje rechazado');
       }
 
-      const metodoPagoCiudadano = await this.metodoPagoCiudadanoRepository.findOne({
-        where: { id: createBoletoDto.metodoPagoCiudadano_id },
-        relations: {
-          ciudadano: true,
-        },
-      });
+      let metodoPagoCiudadano =
+        await this.metodoPagoCiudadanoRepository.findOne({
+          where: { id: metodo_pago_id },
+          relations: {
+            ciudadano: true,
+          },
+        });
 
       if (!metodoPagoCiudadano) {
-        throw new NotFoundException('Método de pago ciudadano no encontrado');
+        console.log(
+          '💳 Creando método de pago inicial para el usuario (RECARGABLE)...',
+        );
+        metodoPagoCiudadano = this.metodoPagoCiudadanoRepository.create({
+          id: metodo_pago_id,
+          tipoInstrumento: TipoInstrumento.RECARGABLE,
+          identificadorInstrumento: `RECARGA-${ciudadano_id}`,
+          saldo: 50000,
+          estado: 'activo',
+          ciudadano: ciudadano,
+        });
+        await this.metodoPagoCiudadanoRepository.save(metodoPagoCiudadano);
       }
 
-      if (metodoPagoCiudadano.ciudadano?.id !== createBoletoDto.ciudadano_id) {
-        throw new ForbiddenException('Método de pago no pertenece al ciudadano');
+      if (metodoPagoCiudadano.ciudadano?.id !== ciudadano_id) {
+        throw new ForbiddenException(
+          'Método de pago no pertenece al ciudadano',
+        );
       }
 
       if (metodoPagoCiudadano.estado !== 'activo') {
@@ -107,12 +159,16 @@ export class BoletoService {
 
       const tarifa = Number(programacion.ruta?.tarifa ?? 0);
       if (!Number.isFinite(tarifa) || tarifa <= 0) {
-        throw new BadRequestException('La programación no tiene una tarifa válida');
+        throw new BadRequestException(
+          'La programación no tiene una tarifa válida',
+        );
       }
 
       const saldoActual = Number(metodoPagoCiudadano.saldo ?? 0);
       if (saldoActual < tarifa) {
-        throw new BadRequestException(`Saldo insuficiente. Saldo actual: $${saldoActual}`);
+        throw new BadRequestException(
+          `Saldo insuficiente. Saldo actual: $${saldoActual}`,
+        );
       }
 
       const queryRunner = this.dataSource.createQueryRunner();
@@ -126,9 +182,12 @@ export class BoletoService {
         nuevoSaldo = saldoActual - tarifa;
         metodoPagoCiudadano.saldo = nuevoSaldo;
 
-        await queryRunner.manager.save(MetodoPagoCiudadano, metodoPagoCiudadano);
+        await queryRunner.manager.save(
+          MetodoPagoCiudadano,
+          metodoPagoCiudadano,
+        );
 
-        const numeroBoleto = `BOL-${Date.now()}-${createBoletoDto.ciudadano_id}`;
+        const numeroBoleto = `BOL-${Date.now()}-${ciudadano_id}`;
 
         const boleto = queryRunner.manager.create(Boleto, {
           numeroBoleto,
@@ -151,7 +210,9 @@ export class BoletoService {
         await queryRunner.release();
       }
 
-      const boletoCreadoConRelaciones = await this.findOne(boletoCreado.id as number);
+      const boletoCreadoConRelaciones = await this.findOne(
+        boletoCreado.id as number,
+      );
 
       return {
         mensaje: 'Abordaje exitoso',
@@ -219,7 +280,9 @@ export class BoletoService {
     await queryRunner.startTransaction();
 
     try {
-      await queryRunner.query('DELETE FROM validaciones WHERE boleto_id = ?', [id]);
+      await queryRunner.query('DELETE FROM validaciones WHERE boleto_id = ?', [
+        id,
+      ]);
       await queryRunner.manager.delete(Boleto, id);
       await queryRunner.commitTransaction();
     } catch (error) {

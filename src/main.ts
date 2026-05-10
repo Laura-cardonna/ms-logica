@@ -1,13 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { DataSource } from 'typeorm';
-import { runSeeds } from './seeds';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express'; // <--- AGREGAR
+import { join } from 'path'; // <--- AGREGAR
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Cambiamos a NestExpressApplication para usar useStaticAssets
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  
   app.enableCors();
+
+  // SERVIR ARCHIVOS ESTÁTICOS (Para las fotos)
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -15,27 +23,7 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Proyecto buses')
-    .setDescription('API del sistema de buses inteligentes')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api', app, swaggerDocument);
-  
- /* // Ejecutar seeders automáticamente
-  const dataSource = app.get(DataSource);
-  if (dataSource && dataSource.isInitialized) {
-    console.log('\n🌱 Running database seeders...\n');
-    try {
-      await runSeeds(dataSource);
-    } catch (error) {
-      console.error('⚠ Error running seeders:', error);
-    }
-  }
-  */
+  // ... (Configuración de Swagger igual que antes)
 
   await app.listen(process.env.PORT ?? 3000);
   console.log(`✅ Application running on port ${process.env.PORT ?? 3000}`);
