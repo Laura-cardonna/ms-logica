@@ -14,11 +14,11 @@ export class RutaParadero {
     @Column({ type: 'time', nullable: true, name: 'hora_llegada_estimada' })
     horaLlegadaEstimada?: string; // Hora estimada de llegada a este paradero
 
-    @ManyToOne(() => Ruta)
+    @ManyToOne(() => Ruta, (ruta) => ruta.rutaParaderos, { eager: false, cascade: false })
     @JoinColumn({ name: 'ruta_id' })
     ruta?: Ruta;
 
-    @ManyToOne(() => Paradero)
+    @ManyToOne(() => Paradero, { eager: false, cascade: false })
     @JoinColumn({ name: 'paradero_id' })
     paradero?: Paradero;
 }

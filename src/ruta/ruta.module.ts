@@ -3,10 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { RutaService } from './ruta.service';
 import { RutaController } from './ruta.controller';
 import { Ruta } from './entities/ruta.entity';
+import { RutaParadero } from 'src/ruta_paradero/entities/ruta_paradero.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Ruta])],
+  imports: [TypeOrmModule.forFeature([Ruta, RutaParadero])],
   controllers: [RutaController],
   providers: [RutaService],
+  exports: [RutaService],
 })
 export class RutaModule {}

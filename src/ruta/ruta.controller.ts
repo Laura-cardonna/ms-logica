@@ -7,26 +7,58 @@ import { UpdateRutaDto } from './dto/update-ruta.dto';
 export class RutaController {
   constructor(private readonly rutaService: RutaService) {}
 
+  /**
+   * Crea una nueva ruta
+   */
   @Post()
   create(@Body() createRutaDto: CreateRutaDto) {
     return this.rutaService.create(createRutaDto);
   }
 
+  /**
+   * Obtiene todas las rutas disponibles
+   * Criterio de aceptación HU-ENTR-2-001: El sistema muestra un listado de todas las rutas con nombre y descripción
+   * @param nombre Filtro opcional por nombre de ruta
+   * @returns Lista de rutas con nombre, descripción y tarifa
+   */
   @Get()
   findAll(@Query('nombre') nombre?: string) {
     return this.rutaService.findAll(nombre);
   }
 
+  /**
+   * Obtiene una ruta específica por ID
+   * @param id ID de la ruta
+   * @returns Ruta encontrada
+   */
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.rutaService.findOne(+id);
   }
 
+  /**
+   * Obtiene todos los paraderos de una ruta en orden secuencial
+   * Criterio de aceptación HU-ENTR-2-001: Al seleccionar una ruta, se visualizan todos los paraderos 
+   * en orden secuencial en un mapa
+   * @param id ID de la ruta
+   * @returns Ruta con paraderos ordenados incluyendo coordenadas GPS
+   */
+  @Get(':id/paraderos')
+  findParaderosByRuta(@Param('id') id: string) {
+    return this.rutaService.findOneWithParaderos(+id);
+  }
+
+  /**
+   * Actualiza una ruta existente
+   */
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateRutaDto: UpdateRutaDto) {
     return this.rutaService.update(+id, updateRutaDto);
   }
 
+  /**
+   * Elimina una ruta
+   */
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.rutaService.remove(+id);

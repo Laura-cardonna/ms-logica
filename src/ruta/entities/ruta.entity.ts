@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { Nodo } from 'src/nodo/entities/nodo.entity';
 import { Boleto } from 'src/boleto/entities/boleto.entity';
+import { RutaParadero } from 'src/ruta_paradero/entities/ruta_paradero.entity';
 
 @Entity('rutas')
 export class Ruta {
@@ -28,4 +29,10 @@ export class Ruta {
 
     @OneToMany(() => Boleto, (boleto) => boleto.ruta)
     boletos?: Boleto[];
+
+    @OneToMany(() => RutaParadero, (rutaParadero) => rutaParadero.ruta, { 
+        eager: false, 
+        cascade: false 
+    })
+    rutaParaderos?: RutaParadero[];
 }
