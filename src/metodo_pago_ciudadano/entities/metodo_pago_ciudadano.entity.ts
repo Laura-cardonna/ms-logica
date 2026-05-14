@@ -35,9 +35,13 @@ export class MetodoPagoCiudadano {
     @JoinColumn({ name: 'metodo_pago_id' })
     metodoPago?: MetodoPago;
 
-    @ManyToOne(() => Ciudadano, (c) => c.metodosPago, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'ciudadano_id' })
-    ciudadano?: Ciudadano;
+// DENTRO DE metodo_pago_ciudadano.entity.ts
+
+  @ManyToOne(() => Ciudadano, (c) => c.metodosPago, { 
+    onDelete: 'RESTRICT' // <--- CAMBIA 'CASCADE' POR 'RESTRICT'
+  })
+  @JoinColumn({ name: 'ciudadano_id' })
+  ciudadano?: Ciudadano;
 
     @OneToMany(() => Boleto, (boleto) => boleto.metodoPagoCiudadano)
     boletos?: Boleto[];
