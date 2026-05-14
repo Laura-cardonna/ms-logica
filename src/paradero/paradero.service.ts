@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateParaderoDto } from './dto/create-paradero.dto';
 import { UpdateParaderoDto } from './dto/update-paradero.dto';
+import { FindNearbyDto } from './dto/find-nearby.dto';
 import { Paradero } from './entities/paradero.entity';
 
 @Injectable()
@@ -105,4 +106,94 @@ export class ParaderoService {
       .orderBy('paradero.nombre', 'ASC')
       .getMany();
   }
+
+  /**
+   * Geocodifica una dirección utilizando Nominatim de OpenStreetMap
+   * @param direccion Texto de la dirección a buscar
+   * @returns Coordenadas latitud y longitud
+   */
+  async geocodeAddress(direccion: string): Promise<{ lat: number; lng: number }> {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(direccion)}&format=json&limit=1`;
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'NestJS-Backend-App/1.0',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon),
+        };
+      }
+      throw new NotFoundException(`No se pudo encontrar las coordenadas para la dirección: ${direccion}`);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new Error(`Error de geocoding: ${error.message}`);
+    }
+  }
+
+  /**
+   * Busca los 5 paraderos más cercanos a unas coordenadas (o dirección geocodificada)
+   * incluyendo la distancia exacta y las rutas asociadas.
+   */
+  async findNearby(dto: FindNearbyDto): Promise<any[]> {
+    let lat = dto.lat;
+    let lng = dto.lng;
+
+    if (dto.direccion) {
+      const coords = await this.geocodeAddress(dto.direccion);
+      lat = coords.lat;
+      lng = coords.lng;
+    }
+
+    if (lat === undefined || lng === undefined) {
+       throw new Error('No se pudieron determinar las coordenadas.');
+    }
+
+    const { raw, entities } = await this.paraderoRepository
+      .createQueryBuilder('paradero')
+      .leftJoinAndSelect('paradero.rutaParaderos', 'rutaParadero')
+      .leftJoinAndSelect('rutaParadero.ruta', 'ruta')
+      .addSelect(
+        `(6371000 * acos(cos(radians(${lat})) * cos(radians(paradero.latitud)) * cos(radians(paradero.longitud) - radians(${lng})) + sin(radians(${lat})) * sin(radians(paradero.latitud))))`,
+        'distancia_metros'
+      )
+      .where('ruta.estado = :estado', { estado: 'activa' }) // Opcional, para traer solo rutas activas
+      .orWhere('ruta.id IS NULL') // Traer paraderos incluso si no tienen ruta aún
+      .orderBy('distancia_metros', 'ASC')
+      .limit(5)
+      .getRawAndEntities();
+
+    // Mapear el resultado para incluir la distancia calculada y simplificar la estructura
+    return entities.map((entity, index) => {
+      // Find the corresponding raw result to extract the dynamically calculated distance
+      const rawResult = raw.find((r) => r.paradero_id === entity.id);
+      
+      const rutas = entity.rutaParaderos?.map((rp) => ({
+        id: rp.ruta?.id,
+        nombre: rp.ruta?.nombre,
+      })).filter(r => r.id !== undefined) || [];
+
+      // Remove duplicates from rutas
+      const uniqueRutas = Array.from(new Map(rutas.map(item => [item.id, item])).values());
+
+      return {
+        id: entity.id,
+        nombre: entity.nombre,
+        descripcion: entity.descripcion,
+        latitud: entity.latitud,
+        longitud: entity.longitud,
+        distancia_metros: rawResult ? Math.round(Number(rawResult.distancia_metros) * 100) / 100 : null,
+        rutas: uniqueRutas,
+      };
+    }).sort((a, b) => (a.distancia_metros || 0) - (b.distancia_metros || 0)).slice(0, 5);
+  }
 }
+

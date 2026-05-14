@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ParaderoService } from './paradero.service';
 import { CreateParaderoDto } from './dto/create-paradero.dto';
 import { UpdateParaderoDto } from './dto/update-paradero.dto';
+import { FindNearbyDto } from './dto/find-nearby.dto';
 
 @Controller('paradero')
 export class ParaderoController {
@@ -21,6 +22,14 @@ export class ParaderoController {
   @Get()
   findAll() {
     return this.paraderoService.findAll();
+  }
+
+  /**
+   * Obtiene los paraderos más cercanos a una coordenada o dirección
+   */
+  @Get('cercanos')
+  findNearby(@Query() findNearbyDto: FindNearbyDto) {
+    return this.paraderoService.findNearby(findNearbyDto);
   }
 
   /**

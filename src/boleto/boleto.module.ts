@@ -9,6 +9,7 @@ import { MetodoPagoCiudadano } from 'src/metodo_pago_ciudadano/entities/metodo_p
 import { Ruta } from 'src/ruta/entities/ruta.entity';
 import { Bus } from 'src/bus/entities/bus.entity';
 import { Paradero } from 'src/paradero/entities/paradero.entity';
+import { CiudadanoModule } from 'src/ciudadano/ciudadano.module'; // <--- IMPORTAR EL MÓDULO
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { Paradero } from 'src/paradero/entities/paradero.entity';
       Bus,
       Paradero,
     ]),
+    CiudadanoModule, // <--- AGREGAR AQUÍ para que el Guard vea el CiudadanoService
   ],
   controllers: [BoletoController],
   providers: [BoletoService],
