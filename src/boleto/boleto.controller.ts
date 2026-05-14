@@ -13,12 +13,11 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
-  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { BoletoService } from './boleto.service';
-import { CreateBoletoDto } from './dto/create-boleto.dto';
 import { UpdateBoletoDto } from './dto/update-boleto.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard'; // <-- ASEGÚRATE QUE ESTA RUTA SEA CORRECTA
 import type { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
 
@@ -27,6 +26,20 @@ import * as jwt from 'jsonwebtoken';
 @Controller('boletos')
 export class BoletoController {
   constructor(private readonly boletoService: BoletoService) {}
+
+  /**
+   * NUEVO ENDPOINT: Obtiene los boletos del usuario autenticado.
+   * En el Front se debe llamar como: GET /boletos/mis-boletos
+   */
+  @ApiOperation({ summary: 'Obtener boletos del ciudadano autenticado' })
+  @UseGuards(JwtAuthGuard)
+  @Get('mis-boletos')
+  async findMyTickets(@Req() req: any) {
+    // El Guard extrae el ID del token y lo pone en req.user.id
+    const ciudadanoId = req.user.id;
+    console.log('📋 Listando boletos para el ciudadano:', ciudadanoId);
+    return this.boletoService.getBoletosByUserId(ciudadanoId);
+  }
 
   @ApiOperation({ summary: 'Registrar abordaje y generar boleto' })
   @Post()
@@ -54,7 +67,7 @@ export class BoletoController {
       bus_id: Number(body.bus_id ?? body.busId),
       paradero_id: Number(body.paradero_id ?? body.paraderoId),
       metodo_pago_id: Number(body.metodo_pago_id ?? body.metodoPagoId),
-      ciudadano_id: ciudadanoId, // String UUID
+      ciudadano_id: ciudadanoId, 
       nombre: (payload.name ?? payload.nombre ?? payload.sub) as string,
       email: (payload.email ?? payload.mail) as string,
     };
@@ -62,13 +75,12 @@ export class BoletoController {
     return await this.boletoService.create(data);
   }
 
-// Esta es la que busca Angular primero (y falla con 404)
-  @ApiOperation({ summary: 'Obtener boletos de un usuario (Ruta English)' })
+  // Mantenemos este por si un admin necesita buscar boletos de alguien específico
+  @ApiOperation({ summary: 'Obtener boletos de un usuario específico por ID' })
   @Get('user/:id')
   findByUser(@Param('id') id: string) {
     return this.boletoService.getBoletosByUserId(id);
   }
-  // ----------------------------------------------------
 
   @Get()
   findAll() {
@@ -77,7 +89,6 @@ export class BoletoController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    // Si el ID del BOLETO es numérico, dejamos el +, si es UUID, quítalo.
     return this.boletoService.findOne(+id);
   }
 
