@@ -2,13 +2,13 @@ import { IsOptional, IsString, IsNumber, ValidateIf, IsNotEmpty } from 'class-va
 import { Type } from 'class-transformer';
 
 /**
- * DTO para búsqueda de paraderos cercanos
+ * DTO mejorado para búsqueda de paraderos cercanos
  * Permite 3 modos:
  * 1. Por coordenadas GPS (lat/lng)
- * 2. Por dirección completa en texto
- * 3. Por componentes de dirección (calle, número, barrio, ciudad)
+ * 2. Por dirección en texto plano
+ * 3. Por componentes de dirección (calle, número, ciudad)
  */
-export class FindNearbyDto {
+export class FindNearbyAdvancedDto {
   // Modo 1: Coordenadas GPS
   @IsOptional()
   @IsNumber({}, { message: 'La latitud debe ser un número' })
@@ -37,9 +37,27 @@ export class FindNearbyDto {
 
   @IsOptional()
   @IsString()
+  apartamento?: string;
+
+  @IsOptional()
+  @IsString()
   barrio?: string;
 
   @IsOptional()
   @IsString()
+  avenida?: string;
+
+  @IsOptional()
+  @IsString()
   ciudad?: string;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'El rango debe ser un número' })
+  @Type(() => Number)
+  rangoMetros?: number; // Distancia máxima en metros (default: 5000m)
+
+  @IsOptional()
+  @IsNumber({}, { message: 'El límite debe ser un número' })
+  @Type(() => Number)
+  limite?: number; // Cantidad de paraderos a retornar (default: 5)
 }
