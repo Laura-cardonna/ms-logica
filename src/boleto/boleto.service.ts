@@ -17,7 +17,9 @@ import {
   TipoInstrumento,
 } from 'src/metodo_pago_ciudadano/entities/metodo_pago_ciudadano.entity';
 import { Paradero } from 'src/paradero/entities/paradero.entity';
-
+import { Validacion } from 'src/validacion/entities/validacion.entity';
+import { Turno } from 'src/turno/entities/turno.entity';
+import { RecorridoViajeDto } from './dto/recorrido-viaje.dto';
 @Injectable()
 export class BoletoService {
   constructor(
@@ -32,6 +34,10 @@ export class BoletoService {
     private readonly metodoPagoCiudadanoRepository: Repository<MetodoPagoCiudadano>,
     @InjectRepository(Paradero)
     private readonly paraderoRepository: Repository<Paradero>,
+    @InjectRepository(Validacion)
+    private readonly validacionRepository: Repository<Validacion>,
+    @InjectRepository(Turno)
+    private readonly turnoRepository: Repository<Turno>,
   ) {}
 
   private readonly boletoRelations = {
@@ -61,8 +67,12 @@ export class BoletoService {
     });
 
     if (!ciudadano) {
-      console.error(`❌ Intento de abordaje fallido: Ciudadano ${data.ciudadano_id} no registrado en DB.`);
-      throw new UnauthorizedException('Ciudadano no encontrado en el sistema local. Reinicie sesión.');
+      console.error(
+        `❌ Intento de abordaje fallido: Ciudadano ${data.ciudadano_id} no registrado en DB.`,
+      );
+      throw new UnauthorizedException(
+        'Ciudadano no encontrado en el sistema local. Reinicie sesión.',
+      );
     }
 
     // 2. ASEGURAR MÉTODO DE PAGO
@@ -72,7 +82,9 @@ export class BoletoService {
     });
 
     if (!metodoPago) {
-      console.log('Método de pago no existe para este ciudadano, vinculando...');
+      console.log(
+        'Método de pago no existe para este ciudadano, vinculando...',
+      );
       metodoPago = await this.metodoPagoCiudadanoRepository.save(
         this.metodoPagoCiudadanoRepository.create({
           id: data.metodo_pago_id,
@@ -86,7 +98,9 @@ export class BoletoService {
     } else {
       // Validamos que el método de pago sea de quien dice ser
       if (metodoPago.ciudadano?.id !== ciudadano.id) {
-        throw new BadRequestException('Este método de pago pertenece a otro usuario');
+        throw new BadRequestException(
+          'Este método de pago pertenece a otro usuario',
+        );
       }
     }
 
@@ -96,15 +110,20 @@ export class BoletoService {
       relations: { bus: true, ruta: true, boletos: true },
     });
 
-    if (!programacion) throw new NotFoundException('No hay programación activa para este bus');
-    
+    if (!programacion)
+      throw new NotFoundException('No hay programación activa para este bus');
+
     const capacidad = Number(programacion.bus?.capacidadMaxima ?? 0);
-    const activos = (programacion.boletos ?? []).filter(b => b.estado === 'activo').length;
-    if (activos >= capacidad) throw new ConflictException('Bus lleno. Abordaje rechazado');
-    
+    const activos = (programacion.boletos ?? []).filter(
+      (b) => b.estado === 'activo',
+    ).length;
+    if (activos >= capacidad)
+      throw new ConflictException('Bus lleno. Abordaje rechazado');
+
     const tarifa = Number(programacion.ruta?.tarifa ?? 0);
     const saldoActual = Number(metodoPago.saldo ?? 0);
-    if (saldoActual < tarifa) throw new BadRequestException(`Saldo insuficiente ($${saldoActual})`);
+    if (saldoActual < tarifa)
+      throw new BadRequestException(`Saldo insuficiente ($${saldoActual})`);
 
     // 4. TRANSACCIÓN DE COBRO Y CREACIÓN
     const queryRunner = this.dataSource.createQueryRunner();
@@ -128,7 +147,10 @@ export class BoletoService {
         ruta: programacion.ruta,
       });
 
-      const boletoGuardado = await queryRunner.manager.save(Boleto, nuevoBoleto);
+      const boletoGuardado = await queryRunner.manager.save(
+        Boleto,
+        nuevoBoleto,
+      );
       await queryRunner.commitTransaction();
 
       return {
@@ -136,7 +158,6 @@ export class BoletoService {
         boleto: await this.findOne(boletoGuardado.id as number),
         saldoRestante: metodoPago.saldo,
       };
-
     } catch (error: any) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -151,7 +172,7 @@ export class BoletoService {
     return await this.boletoRepository.find({
       where: { ciudadano: { id: ciudadanoId } },
       relations: this.boletoRelations,
-      order: { inicioViaje: 'DESC' }
+      order: { inicioViaje: 'DESC' },
     });
   }
 
@@ -174,8 +195,10 @@ export class BoletoService {
   async update(id: number, updateBoletoDto: UpdateBoletoDto) {
     const boleto = await this.boletoRepository.findOne({ where: { id } });
     if (!boleto) throw new NotFoundException('Boleto no encontrado');
-    if (updateBoletoDto.estado !== undefined) boleto.estado = updateBoletoDto.estado;
-    if (updateBoletoDto.finViaje !== undefined) boleto.finViaje = updateBoletoDto.finViaje;
+    if (updateBoletoDto.estado !== undefined)
+      boleto.estado = updateBoletoDto.estado;
+    if (updateBoletoDto.finViaje !== undefined)
+      boleto.finViaje = updateBoletoDto.finViaje;
     await this.boletoRepository.save(boleto);
     return this.findOne(id);
   }
@@ -187,7 +210,9 @@ export class BoletoService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
-      await queryRunner.query('DELETE FROM validaciones WHERE boleto_id = ?', [id]);
+      await queryRunner.query('DELETE FROM validaciones WHERE boleto_id = ?', [
+        id,
+      ]);
       await queryRunner.manager.delete(Boleto, id);
       await queryRunner.commitTransaction();
     } catch (error) {
@@ -198,4 +223,67 @@ export class BoletoService {
     }
     return { mensaje: 'Boleto eliminado correctamente' };
   }
-}
+  async obtenerRecorrido(boletoId: number): Promise<RecorridoViajeDto> {
+    const boleto = await this.boletoRepository.findOne({
+      where: { id: boletoId },
+      relations: ['ruta', 'programacion', 'programacion.bus'],
+    });
+
+    if (!boleto) throw new NotFoundException('El viaje no existe');
+
+    const validaciones = await this.validacionRepository.find({
+      where: { boleto: { id: boletoId } },
+      relations: ['paradero'],
+      order: { fecha: 'ASC' },
+    });
+
+    let conductorNombre = 'No asignado';
+    if (boleto.programacion?.bus && boleto.programacion?.fecha) {
+      const turno = await this.turnoRepository.findOne({
+        where: {
+          bus: { id: boleto.programacion.bus.id },
+          fecha: boleto.programacion.fecha,
+        },
+        relations: ['conductor'],
+      });
+      // Verificamos que el nombre exista para evitar el error TS2322
+      if (turno?.conductor?.nombre) {
+        conductorNombre = turno.conductor.nombre;
+      }
+    }
+
+    let tiempoTotalMinutos = 0;
+    const abordaje = validaciones.find(v => v.tipo === 'abordaje');
+    const descenso = validaciones.find(v => v.tipo === 'descenso');
+
+    if (abordaje?.fecha && descenso?.fecha) {
+      const ms = descenso.fecha.getTime() - abordaje.fecha.getTime();
+      tiempoTotalMinutos = Math.round(ms / 60000);
+    } else if (boleto.inicioViaje && boleto.finViaje) {
+      const ms = boleto.finViaje.getTime() - boleto.inicioViaje.getTime();
+      tiempoTotalMinutos = Math.round(ms / 60000);
+    }
+
+    return {
+      boletoId: boleto.id || 0, // Fallback a 0 si es undefined
+      ruta: {
+        id: boleto.ruta?.id || 0, // Fallback a 0 si es undefined
+        nombre: boleto.ruta?.nombre || 'Ruta sin nombre',
+      },
+      operacion: {
+        busPlaca: boleto.programacion?.bus?.placa || 'Placa desconocida',
+        conductorNombre: conductorNombre,
+      },
+      tiempoTotalMinutos,
+      validaciones: validaciones.map(val => ({
+        tipo: val.tipo || 'desconocido', // Fallback si tipo es undefined
+        horaExacta: val.fecha || new Date(), // Fallback si fecha es undefined
+        paradero: {
+          id: val.paradero?.id || 0, // Fallback si id es undefined
+          nombre: (val.paradero as any)?.nombre || 'Paradero desconocido', 
+        },
+      })),
+    };
+  }
+  }
+

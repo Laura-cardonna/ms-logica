@@ -10,6 +10,8 @@ import { Ruta } from 'src/ruta/entities/ruta.entity';
 import { Bus } from 'src/bus/entities/bus.entity';
 import { Paradero } from 'src/paradero/entities/paradero.entity';
 import { CiudadanoModule } from 'src/ciudadano/ciudadano.module'; // <--- IMPORTAR EL MÓDULO
+import { Validacion } from 'src/validacion/entities/validacion.entity';
+import { Turno } from 'src/turno/entities/turno.entity';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { CiudadanoModule } from 'src/ciudadano/ciudadano.module'; // <--- IMPORT
       Ruta,
       Bus,
       Paradero,
+      Validacion,
+      Turno,
     ]),
     CiudadanoModule, // <--- AGREGAR AQUÍ para que el Guard vea el CiudadanoService
   ],

@@ -9,6 +9,7 @@ import {
   UseGuards,
   Req,
   UnauthorizedException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -21,6 +22,7 @@ import { CreateBoletoDto } from './dto/create-boleto.dto';
 import { UpdateBoletoDto } from './dto/update-boleto.dto';
 import type { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
+import { RecorridoViajeDto } from './dto/recorrido-viaje.dto';
 
 @ApiTags('boletos')
 @ApiBearerAuth()
@@ -90,4 +92,11 @@ export class BoletoController {
   remove(@Param('id') id: string) {
     return this.boletoService.remove(+id);
   }
+
+  @Get(':id/recorrido')
+async verRecorridoViaje(
+  @Param('id', ParseIntPipe) id: number,
+    ): Promise<RecorridoViajeDto> {
+    return this.boletoService.obtenerRecorrido(id);
+}
 }
