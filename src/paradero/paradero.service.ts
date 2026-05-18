@@ -8,10 +8,6 @@ import { Paradero } from './entities/paradero.entity';
 
 @Injectable()
 export class ParaderoService {
-  private readonly OSRM_URL = 'https://router.project-osrm.org/route/v1'; // Servicio de enrutamiento con grafos
-  private readonly NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
-  private readonly DEFAULT_RADIUS = 50000; // 50km para búsqueda inicial
-
   constructor(
     @InjectRepository(Paradero)
     private readonly paraderoRepository: Repository<Paradero>,
@@ -89,34 +85,39 @@ export class ParaderoService {
   }
 
   /**
+   * Obtiene paraderos dentro de un rango de coordenadas (para búsqueda geográfica)
+   * HELPER METHOD reutilizable
+   * @param latMin Latitud mínima
+   * @param latMax Latitud máxima
+   * @param lonMin Longitud mínima
+   * @param lonMax Longitud máxima
+   * @returns Array de paraderos en el rango
+   */
+  async findByGeographicRange(
+    latMin: number,
+    latMax: number,
+    lonMin: number,
+    lonMax: number,
+  ): Promise<Paradero[]> {
+    return this.paraderoRepository
+      .createQueryBuilder('paradero')
+      .where('paradero.latitud BETWEEN :latMin AND :latMax', { latMin, latMax })
+      .andWhere('paradero.longitud BETWEEN :lonMin AND :lonMax', { lonMin, lonMax })
+      .orderBy('paradero.nombre', 'ASC')
+      .getMany();
+  }
+
+  /**
    * Geocodifica una dirección utilizando Nominatim de OpenStreetMap
-   * Soporta dirección en texto completo o componentes separados
-   * @param dto Puede tener: direccion (string) O calle + numero + barrio + ciudad
+   * @param direccion Texto de la dirección a buscar
    * @returns Coordenadas latitud y longitud
    */
-  private async geocodeAddress(dto: FindNearbyDto): Promise<{ lat: number; lng: number }> {
-    let direccionTexto: string;
-
-    // Construir dirección desde componentes individuales o usar la proporcionada
-    if (dto.calle || dto.numero || dto.barrio || dto.ciudad) {
-      const partes = [];
-      if (dto.calle) partes.push(dto.calle);
-      if (dto.numero) partes.push(dto.numero);
-      if (dto.barrio) partes.push(dto.barrio);
-      if (dto.ciudad) partes.push(dto.ciudad);
-      direccionTexto = partes.join(', ');
-    } else if (dto.direccion) {
-      direccionTexto = dto.direccion;
-    } else {
-      throw new Error('Se requiere dirección completa o componentes (calle, número, barrio, ciudad)');
-    }
-
-    const url = `${this.NOMINATIM_URL}/search?q=${encodeURIComponent(direccionTexto)}&format=json&limit=1`;
-    
+  async geocodeAddress(direccion: string): Promise<{ lat: number; lng: number }> {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(direccion)}&format=json&limit=1`;
     try {
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'NestJS-Bus-Backend/1.0',
+          'User-Agent': 'NestJS-Backend-App/1.0',
         },
       });
       
@@ -131,7 +132,7 @@ export class ParaderoService {
           lng: parseFloat(data[0].lon),
         };
       }
-      throw new NotFoundException(`No se pudo encontrar las coordenadas para: ${direccionTexto}`);
+      throw new NotFoundException(`No se pudo encontrar las coordenadas para la dirección: ${direccion}`);
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new Error(`Error de geocoding: ${error.message}`);
@@ -139,176 +140,97 @@ export class ParaderoService {
   }
 
   /**
-   * Calcula la distancia real usando OSRM (Open Source Routing Machine)
-   * Utiliza algoritmos de grafos sobre la red de calles de OpenStreetMap
-   * @param lat1 Latitud origen
-   * @param lng1 Longitud origen
-   * @param lat2 Latitud destino
-   * @param lng2 Longitud destino
-   * @returns Distancia en metros y duración en segundos
+   * Calcula la distancia y el tiempo a pie utilizando la API pública de OSRM
    */
-  async calculateDistanceWithOSRM(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number,
-  ): Promise<{ distancia_metros: number; duracion_segundos: number }> {
-    const url = `${this.OSRM_URL}/car/${lng1},${lat1};${lng2},${lat2}`;
-    
+  async calculateDistanceWithOSRM(lat1: number, lng1: number, lat2: number, lng2: number): Promise<{ distancia_metros: number; duracion_segundos: number } | null> {
     try {
+      // OSRM requiere las coordenadas en formato longitud,latitud
+      const url = `https://router.project-osrm.org/route/v1/foot/${lng1},${lat1};${lng2},${lat2}?overview=false`;
       const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`OSRM error: ${response.status}`);
-      }
-
       const data = await response.json();
+      
       if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
         return {
-          distancia_metros: Math.round(route.distance),
-          duracion_segundos: Math.round(route.duration),
+          distancia_metros: data.routes[0].distance,
+          duracion_segundos: data.routes[0].duration,
         };
       }
-      throw new Error('No se encontró ruta en OSRM');
+      return null;
     } catch (error) {
-      console.error(`Error calculando distancia con OSRM: ${error.message}`);
-      // Fallback a Haversine si OSRM falla
-      return this.calculateDistanceHaversine(lat1, lng1, lat2, lng2);
+      console.error('Error calculando distancia con OSRM:', error);
+      return null; // En caso de fallo con la API, retornamos nulo para que el código no se rompa
     }
   }
 
   /**
-   * Calcula distancia con fórmula Haversine (línea recta aproximada)
-   * Se usa como fallback si OSRM no está disponible
-   * @returns Distancia en metros
-   */
-  private calculateDistanceHaversine(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number,
-  ): { distancia_metros: number; duracion_segundos: number } {
-    const R = 6371000; // Radio de la Tierra en metros
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distancia_metros = Math.round(R * c);
-    
-    // Estimación tosca de tiempo (4.5 km/h promedio en ciudad)
-    const duracion_segundos = Math.round((distancia_metros / 4.5) * 3.6);
-    
-    return { distancia_metros, duracion_segundos };
-  }
-
-  /**
-   * Obtiene paraderos dentro de un rango geográfico (para filtro inicial)
-   * @param latitud Centro
-   * @param longitud Centro
-   * @param radiusKm Radio en kilómetros
-   * @returns Array de paraderos
-   */
-  async findByGeographicRange(
-    latitud: number,
-    longitud: number,
-    radiusKm: number = 5,
-  ): Promise<Paradero[]> {
-    // Cálculo aproximado de grados para el rango
-    const deltaLat = radiusKm / 111; // 1 grado ≈ 111 km
-    const deltaLng = radiusKm / (111 * Math.cos((latitud * Math.PI) / 180));
-
-    return this.paraderoRepository
-      .createQueryBuilder('paradero')
-      .where('paradero.latitud BETWEEN :latMin AND :latMax', {
-        latMin: latitud - deltaLat,
-        latMax: latitud + deltaLat,
-      })
-      .andWhere('paradero.longitud BETWEEN :lonMin AND :lonMax', {
-        lonMin: longitud - deltaLng,
-        lonMax: longitud + deltaLng,
-      })
-      .orderBy('paradero.nombre', 'ASC')
-      .getMany();
-  }
-
-  /**
    * Busca los 5 paraderos más cercanos a unas coordenadas (o dirección geocodificada)
-   * Utiliza OSRM para calcular distancias reales por carreteras (algoritmo de grafos)
-   * incluyendo la distancia exacta, duración y las rutas asociadas.
-   *
-   * @param dto FindNearbyDto con lat/lng o dirección
-   * @returns Array de paraderos cercanos ordenados por distancia
+   * incluyendo la distancia exacta calculada por OSRM y las rutas asociadas.
    */
   async findNearby(dto: FindNearbyDto): Promise<any[]> {
     let lat = dto.lat;
     let lng = dto.lng;
 
-    // Geocodificar si proporciona dirección
-    if (dto.direccion || dto.calle || dto.numero || dto.barrio || dto.ciudad) {
-      const coords = await this.geocodeAddress(dto);
+    if (dto.direccion) {
+      const coords = await this.geocodeAddress(dto.direccion);
       lat = coords.lat;
       lng = coords.lng;
     }
 
     if (lat === undefined || lng === undefined) {
-      throw new Error('No se pudieron determinar las coordenadas.');
+       throw new Error('No se pudieron determinar las coordenadas.');
     }
 
-    // 1. Búsqueda geográfica inicial para filtrar paraderos cercanos
-    // (Para evitar calcular OSRM con todos los paraderos)
-    const paraderosEnRango = await this.findByGeographicRange(lat, lng, 5); // 5 km iniciales
-
-    if (paraderosEnRango.length === 0) {
-      throw new NotFoundException('No se encontraron paraderos cercanos');
-    }
-
-    // 2. Obtener paraderos con rutas asociadas
-    const paraderosConRutas = await this.paraderoRepository
+    const { entities } = await this.paraderoRepository
       .createQueryBuilder('paradero')
       .leftJoinAndSelect('paradero.rutaParaderos', 'rutaParadero')
       .leftJoinAndSelect('rutaParadero.ruta', 'ruta')
-      .where('paradero.id IN (:...ids)', { ids: paraderosEnRango.map((p) => p.id) })
-      .getMany();
+      .where('ruta.estado = :estado', { estado: 'activa' }) 
+      .orWhere('ruta.id IS NULL') 
+      .getRawAndEntities();
 
-    // 3. Calcular distancia real con OSRM para cada paradero
-    const paraderoConDistancia = await Promise.all(
-      paraderosConRutas.map(async (paradero) => {
-        const distanceData = await this.calculateDistanceWithOSRM(lat, lng, +paradero.latitud, +paradero.longitud);
+    // Mapeamos de forma asíncrona para poder usar el await de OSRM
+    const promesas = entities.map(async (paradero) => {
+      
+      // 1. Declaramos la variable al inicio para el alcance (Scope)
+      let distanceData: { distancia_metros: number; duracion_segundos: number } | null = null;
 
-        const rutas = paradero.rutaParaderos
-          ?.map((rp) => ({
-            id: rp.ruta?.id,
-            nombre: rp.ruta?.nombre,
-            estado: rp.ruta?.estado,
-          }))
-          .filter((r) => r.id !== undefined) || [];
+      // 2. Validamos que la latitud y longitud existan antes de llamar a OSRM para evitar errores de TypeScript
+      if (paradero.latitud !== undefined && paradero.longitud !== undefined) {
+        distanceData = await this.calculateDistanceWithOSRM(
+          lat, 
+          lng, 
+          +paradero.latitud, 
+          +paradero.longitud
+        );
+      }
+      
+      const rutas = paradero.rutaParaderos?.map((rp) => ({
+        id: rp.ruta?.id,
+        nombre: rp.ruta?.nombre,
+      })).filter(r => r.id !== undefined) || [];
 
-        // Eliminar duplicados de rutas
-        const uniqueRutas = Array.from(new Map(rutas.map((item) => [item.id, item])).values());
+      // Eliminar duplicados de rutas
+      const uniqueRutas = Array.from(new Map(rutas.map(item => [item.id, item])).values());
 
-        return {
-          id: paradero.id,
-          nombre: paradero.nombre,
-          descripcion: paradero.descripcion,
-          latitud: paradero.latitud,
-          longitud: paradero.longitud,
-          distancia_metros: distanceData.distancia_metros,
-          duracion_minutos: Math.ceil(distanceData.duracion_segundos / 60),
-          metodo_calculo: 'OSRM (grafos)', // Para debug
-          rutas: uniqueRutas,
-        };
-      }),
-    );
+      return {
+        id: paradero.id,
+        nombre: paradero.nombre,
+        descripcion: paradero.descripcion,
+        latitud: paradero.latitud,
+        longitud: paradero.longitud,
+        // 3. Usamos distanceData si existe, si no, devolvemos null
+        distancia_metros: distanceData ? distanceData.distancia_metros : null,
+        duracion_minutos: distanceData ? Math.ceil(distanceData.duracion_segundos / 60) : null,
+        rutas: uniqueRutas,
+      };
+    });
 
-    // 4. Ordenar por distancia y retornar los 5 más cercanos
-    return paraderoConDistancia
-      .sort((a, b) => a.distancia_metros - b.distancia_metros)
+    // Esperamos a que se resuelvan todas las llamadas a la API de OSRM
+    const resultados = await Promise.all(promesas);
+
+    // Ordenamos por distancia y devolvemos los 5 más cercanos
+    return resultados
+      .sort((a, b) => (a.distancia_metros || 0) - (b.distancia_metros || 0))
       .slice(0, 5);
   }
 }
-
