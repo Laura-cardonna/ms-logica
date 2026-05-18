@@ -1,5 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { Nodo } from 'src/nodo/entities/nodo.entity';
+import { RutaParadero } from 'src/ruta_paradero/entities/ruta_paradero.entity';
 
 @Entity('paraderos')
 export class Paradero {
@@ -21,4 +22,7 @@ export class Paradero {
     @ManyToOne(() => Nodo, (nodo) => nodo.paraderos)
     @JoinColumn({ name: 'nodo_id' })
     nodo?: Nodo;
+
+    @OneToMany(() => RutaParadero, (rutaParadero) => rutaParadero.paradero)
+    rutaParaderos?: RutaParadero[];
 }

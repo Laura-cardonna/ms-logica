@@ -8,16 +8,14 @@ import {
   Delete,
   UseGuards,
   Req,
+  ParseIntPipe,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BoletoService } from './boleto.service';
 import { UpdateBoletoDto } from './dto/update-boleto.dto';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard'; 
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { CreateBoletoDto } from './dto/create-boleto.dto';
+import { DetalleViajeResponseDto } from './dto/detalle-viaje-response.dto';
 
 @ApiTags('boletos')
 @ApiBearerAuth()
@@ -30,9 +28,12 @@ export class BoletoController {
    * REGISTRAR ABORDAJE (HISTORIA DE MARÍA)
    * Este endpoint recibe el bus, paradero y el ID de la TARJETA del ciudadano.
    */
-  @ApiOperation({ summary: 'Registrar abordaje y generar boleto validando saldo' })
+  @ApiOperation({
+    summary: 'Registrar abordaje y generar boleto validando saldo',
+  })
   @Post()
-  async create(@Req() req: any, @Body() body: CreateBoletoDto) { // 🎯 Tipamos con tu DTO real
+  async create(@Req() req: any, @Body() body: CreateBoletoDto) {
+    // 🎯 Tipamos con tu DTO real
     // El JwtAuthGuard ya extrajo el ID del token y lo puso en req.user.id
     const ciudadanoId = req.user.id;
 
@@ -80,7 +81,9 @@ export class BoletoController {
     return this.boletoService.findOne(+id);
   }
 
-  @ApiOperation({ summary: 'Actualizar estado de un boleto (Finalizar/Cancelar)' })
+  @ApiOperation({
+    summary: 'Actualizar estado de un boleto (Finalizar/Cancelar)',
+  })
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateBoletoDto: UpdateBoletoDto) {
     return this.boletoService.update(+id, updateBoletoDto);
@@ -92,7 +95,9 @@ export class BoletoController {
     return this.boletoService.remove(+id);
   }
 
-  @ApiOperation({ summary: 'Obtener boletos de un usuario específico por ID (Admin)' })
+  @ApiOperation({
+    summary: 'Obtener boletos de un usuario específico por ID (Admin)',
+  })
   @Get('user/:id')
   findByUser(@Param('id') id: string) {
     return this.boletoService.getBoletosByUserId(id);
@@ -100,8 +105,15 @@ export class BoletoController {
 
   @Post('finalizar-viaje')
   async finalizarViaje(
-    @Body() data: { boleto_id: number; paraderoDescenso_id: number }
+    @Body() data: { boleto_id: number; paraderoDescenso_id: number },
   ) {
     return await this.boletoService.finalizarViaje(data);
+  }
+
+  @Get(':id/recorrido')
+  async verRecorridoViaje(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<DetalleViajeResponseDto> {
+    return this.boletoService.obtenerRecorrido(id);
   }
 }

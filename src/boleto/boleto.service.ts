@@ -15,6 +15,13 @@ import { Programacion } from 'src/programacion/entities/programacion.entity';
 import { MetodoPagoCiudadano } from 'src/metodo_pago_ciudadano/entities/metodo_pago_ciudadano.entity';
 import { Validacion } from 'src/validacion/entities/validacion.entity'; // 👈 Importamos la entidad Validacion para registrar los intentos de abordaje
 import { FindOptionsRelations } from 'typeorm';
+import { RutaParadero } from 'src/ruta_paradero/entities/ruta_paradero.entity';
+import { Turno } from 'src/turno/entities/turno.entity';
+import {
+  DetalleViajeResponseDto,
+  CoordenadaRutaDto,
+  ValidacionViajeDto,
+} from './dto/detalle-viaje-response.dto';
 
 @Injectable()
 export class BoletoService {
@@ -30,8 +37,8 @@ export class BoletoService {
     private readonly metodoPagoCiudadanoRepository: Repository<MetodoPagoCiudadano>,
     @InjectRepository(Validacion)
     private readonly validacionRepository: Repository<Validacion>, // 👈 TU REPOSITORIO INYECTADO CORRECTAMENTE
-  ) { }
-  
+  ) {}
+
   private readonly boletoRelations: FindOptionsRelations<Boleto> = {
     ciudadano: true,
     programacion: {
@@ -48,7 +55,7 @@ export class BoletoService {
     },
   };
 
-/**
+  /**
    * CREAR BOLETO (ABORDAJE) - Lógica de Negocio Premium
    */
   async create(data: {
@@ -57,7 +64,9 @@ export class BoletoService {
     metodoPagoCiudadano_id?: number;
     ciudadano_id?: string;
   }) {
-    console.log('--- Iniciando proceso de abordaje (Validación de Saldo y Viajes Activos) ---');
+    console.log(
+      '--- Iniciando proceso de abordaje (Validación de Saldo y Viajes Activos) ---',
+    );
 
     // 1. Validar existencia del Ciudadano
     const ciudadano = await this.ciudadanoRepository.findOne({
@@ -89,7 +98,9 @@ export class BoletoService {
     });
 
     if (!tarjeta) {
-      throw new NotFoundException('La tarjeta seleccionada no existe en el sistema.');
+      throw new NotFoundException(
+        'La tarjeta seleccionada no existe en el sistema.',
+      );
     }
 
     if (tarjeta.ciudadano?.id !== ciudadano.id) {
@@ -99,7 +110,9 @@ export class BoletoService {
     }
 
     if (tarjeta.estado !== 'activo') {
-      throw new BadRequestException('La tarjeta seleccionada se encuentra inactiva.');
+      throw new BadRequestException(
+        'La tarjeta seleccionada se encuentra inactiva.',
+      );
     }
 
     // 3. Validar Programación Activa y Capacidad Máxima del Autobús
@@ -124,7 +137,8 @@ export class BoletoService {
       try {
         const datosValidacion: any = {
           tipo: 'abordaje',
-          motivo: 'Abordaje rechazado: El bus ha alcanzado su capacidad máxima permitida.',
+          motivo:
+            'Abordaje rechazado: El bus ha alcanzado su capacidad máxima permitida.',
         };
 
         if (data.paraderoAbordaje_id) {
@@ -133,10 +147,15 @@ export class BoletoService {
 
         await this.validacionRepository.save(datosValidacion);
       } catch (auditError) {
-        console.error('⚠️ Error guardando auditoría de rechazo por bus lleno:', auditError);
+        console.error(
+          '⚠️ Error guardando auditoría de rechazo por bus lleno:',
+          auditError,
+        );
       }
 
-      throw new ConflictException('Abordaje rechazado: El bus ha alcanzado su capacidad máxima permitida.');
+      throw new ConflictException(
+        'Abordaje rechazado: El bus ha alcanzado su capacidad máxima permitida.',
+      );
     }
 
     // 4. Validar Saldo Disponible contra la Tarifa de la Ruta
@@ -157,12 +176,12 @@ export class BoletoService {
     try {
       // 1. Descontamos el saldo en el objeto en memoria
       tarjeta.saldo = saldoActual - tarifa;
-      
+
       // 🎯 UPDATE nativo por ID directo en la BD
       await queryRunner.manager.update(
         MetodoPagoCiudadano,
         { id: tarjeta.id },
-        { saldo: tarjeta.saldo }
+        { saldo: tarjeta.saldo },
       );
 
       // Clave de sufijo único para el código del boleto
@@ -173,13 +192,15 @@ export class BoletoService {
       const nuevoBoleto = queryRunner.manager.create(Boleto, {
         numeroBoleto: `BOL-${Date.now()}-${suffix}`,
         costo: tarifa,
-        inicioViaje: new Date(), 
+        inicioViaje: new Date(),
         estado: 'activo',
         ciudadano: ciudadano,
         programacion: programacion,
         metodoPagoCiudadano: tarjeta,
         ruta: programacion.ruta,
-        paraderoAbordaje: data.paraderoAbordaje_id ? { id: data.paraderoAbordaje_id } : null,
+        paraderoAbordaje: data.paraderoAbordaje_id
+          ? { id: data.paraderoAbordaje_id }
+          : null,
       } as any);
 
       const boletoGuardado = await queryRunner.manager.save(
@@ -192,14 +213,18 @@ export class BoletoService {
         tipo: 'abordaje',
         motivo: 'Abordaje exitoso',
         boleto: boletoGuardado,
-        paradero: data.paraderoAbordaje_id ? { id: data.paraderoAbordaje_id } : null,
+        paradero: data.paraderoAbordaje_id
+          ? { id: data.paraderoAbordaje_id }
+          : null,
       } as any);
 
       await queryRunner.manager.save(Validacion, nuevaValidacion);
-      
+
       await queryRunner.commitTransaction();
 
-      console.log(`💰 [ÉXITO] Pasaje cobrado. Nuevo saldo de la tarjeta ID ${tarjeta.id}: $${tarjeta.saldo}`);
+      console.log(
+        `💰 [ÉXITO] Pasaje cobrado. Nuevo saldo de la tarjeta ID ${tarjeta.id}: $${tarjeta.saldo}`,
+      );
 
       return {
         mensaje: 'Abordaje exitoso',
@@ -259,12 +284,14 @@ export class BoletoService {
     boleto_id: number;
     paraderoDescenso_id: number;
   }) {
-    console.log(`--- Iniciando proceso de descenso para el Boleto ID: ${data.boleto_id} ---`);
+    console.log(
+      `--- Iniciando proceso de descenso para el Boleto ID: ${data.boleto_id} ---`,
+    );
 
     // 1. Validar existencia del boleto con todas sus relaciones (gracias a this.boletoRelations)
     const boleto = await this.boletoRepository.findOne({
       where: { id: data.boleto_id },
-      relations: this.boletoRelations
+      relations: this.boletoRelations,
     });
 
     if (!boleto) {
@@ -272,7 +299,9 @@ export class BoletoService {
     }
 
     if (boleto.estado === 'completado') {
-      throw new BadRequestException('Este viaje ya había sido completado previamente.');
+      throw new BadRequestException(
+        'Este viaje ya había sido completado previamente.',
+      );
     }
 
     // 2. Ejecutar transacción segura para el cierre del viaje
@@ -293,7 +322,9 @@ export class BoletoService {
         tipo: 'descenso', // 👈 Cambia a descenso según tu ENUM
         motivo: 'Viaje completado - Gracias por usar nuestro servicio',
         boleto: boletoActualizado,
-        paradero: data.paraderoDescenso_id ? { id: data.paraderoDescenso_id } : null,
+        paradero: data.paraderoDescenso_id
+          ? { id: data.paraderoDescenso_id }
+          : null,
       } as any);
 
       await queryRunner.manager.save(Validacion, nuevaValidacionDescenso);
@@ -301,13 +332,14 @@ export class BoletoService {
       // Consolidamos los cambios en la Base de Datos
       await queryRunner.commitTransaction();
 
-      console.log(`🚌 [DESCENSO] Viaje ID ${boleto.id} cerrado con éxito. Cupo liberado.`);
+      console.log(
+        `🚌 [DESCENSO] Viaje ID ${boleto.id} cerrado con éxito. Cupo liberado.`,
+      );
 
       return {
         mensaje: 'Viaje completado - Gracias por usar nuestro servicio',
-        boleto: await this.findOne(boletoActualizado.id as number)
+        boleto: await this.findOne(boletoActualizado.id as number),
       };
-
     } catch (error) {
       // Si algo falla, se deshace todo para evitar datos corruptos
       await queryRunner.rollbackTransaction();
@@ -346,11 +378,13 @@ export class BoletoService {
    */
   async getTarjetasByUserId(ciudadanoId: string) {
     const ciudadano = await this.ciudadanoRepository.findOne({
-      where: { id: ciudadanoId }
+      where: { id: ciudadanoId },
     });
 
-    const realNumericId = ciudadano ? (ciudadano as any).numericId || ciudadano.id : 1;
-    
+    const realNumericId = ciudadano
+      ? (ciudadano as any).numericId || ciudadano.id
+      : 1;
+
     const tarjetasEncontradas = await this.metodoPagoCiudadanoRepository
       .createQueryBuilder('tarjeta')
       .where('tarjeta.ciudadano_id = :numericId', { numericId: realNumericId })
@@ -358,5 +392,96 @@ export class BoletoService {
       .getMany();
 
     return tarjetasEncontradas;
+  }
+
+  async obtenerRecorrido(boletoId: number): Promise<DetalleViajeResponseDto> {
+    const boleto = await this.boletoRepository.findOne({
+      where: { id: boletoId },
+      relations: ['ruta', 'programacion', 'programacion.bus'],
+    });
+
+    if (!boleto) {
+      throw new NotFoundException('El viaje especificado no existe');
+    }
+
+    let coordenadasMapa: CoordenadaRutaDto[] = [];
+    if (boleto.ruta?.id) {
+      const rutaParaderoRepository =
+        this.dataSource.getRepository(RutaParadero);
+      const rutaParaderos = await rutaParaderoRepository.find({
+        where: { ruta: { id: boleto.ruta.id } },
+        relations: ['paradero'],
+        order: { ordenSecuencial: 'ASC' },
+      });
+
+      coordenadasMapa = rutaParaderos.map((rp) => ({
+        ordenSecuencial: rp.ordenSecuencial || 0,
+        latitud: rp.paradero?.latitud ? Number(rp.paradero.latitud) : 0,
+        longitud: rp.paradero?.longitud ? Number(rp.paradero.longitud) : 0,
+      }));
+    }
+
+    const validacionRepository = this.dataSource.getRepository(Validacion);
+    const validacionesEntidades = await validacionRepository.find({
+      where: { boleto: { id: boletoId } },
+      relations: ['paradero'],
+      order: { fecha: 'ASC' },
+    });
+
+    let conductorNombre = 'No asignado';
+    if (boleto.programacion?.bus?.id && boleto.programacion?.fecha) {
+      const turnoRepository = this.dataSource.getRepository(Turno);
+      const turno = await turnoRepository.findOne({
+        where: {
+          bus: { id: boleto.programacion.bus.id },
+          fecha: boleto.programacion.fecha,
+        },
+        relations: ['conductor'],
+      });
+
+      if (turno?.conductor?.nombre) {
+        conductorNombre = String(turno.conductor.nombre);
+      }
+    }
+
+    let tiempoTotalMinutos = 0;
+    const abordaje = validacionesEntidades.find((v) => v.tipo === 'abordaje');
+    const descenso = validacionesEntidades.find((v) => v.tipo === 'descenso');
+
+    if (abordaje?.fecha && descenso?.fecha) {
+      const ms = descenso.fecha.getTime() - abordaje.fecha.getTime();
+      tiempoTotalMinutos = Math.round(ms / 60000);
+    } else if (boleto.inicioViaje && boleto.finViaje) {
+      const ms = boleto.finViaje.getTime() - boleto.inicioViaje.getTime();
+      tiempoTotalMinutos = Math.round(ms / 60000);
+    }
+
+    const validacionesMapeadas: ValidacionViajeDto[] =
+      validacionesEntidades.map((val) => ({
+        tipo: val.tipo || 'desconocido',
+        horaExacta: val.fecha || new Date(),
+        paradero: {
+          id: val.paradero?.id || 0,
+          nombre: String(
+            (val.paradero as any)?.nombre || 'Paradero sin nombre',
+          ),
+          latitud: val.paradero?.latitud ? Number(val.paradero.latitud) : 0,
+          longitud: val.paradero?.longitud ? Number(val.paradero.longitud) : 0,
+        },
+      }));
+
+    return {
+      boletoId: Number(boleto.id || 0),
+      ruta: {
+        nombre: String(boleto.ruta?.nombre || 'Ruta sin nombre'),
+        coordenadasMapa,
+      },
+      validaciones: validacionesMapeadas,
+      tiempoTotalMinutos,
+      operacion: {
+        busPlaca: String(boleto.programacion?.bus?.placa || 'Sin placa'),
+        conductorNombre,
+      },
+    };
   }
 }

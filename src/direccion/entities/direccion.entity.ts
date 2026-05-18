@@ -21,6 +21,18 @@ export class Direccion {
     @Column()
     codigoPostal?: string;
 
+    @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+    latitud?: number;
+
+    @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+    longitud?: number;
+
+    @Column({ type: 'text', nullable: true })
+    direccionCompleta?: string;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    geocodificadoEn?: Date;
+
     @OneToMany(() => Ciudadano, (c) => c.direccion)
     ciudadanos?: Ciudadano[];
 }
