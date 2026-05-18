@@ -1,11 +1,22 @@
+// update-bus.dto.ts
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateBusDto } from './create-bus.dto';
-import { IsOptional, IsString, IsIn } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  CreateBusDto,
+  ESTADOS_BUS,
+  normalizarEstadoBus,
+} from './create-bus.dto';
 
 export class UpdateBusDto extends PartialType(CreateBusDto) {
+  @ApiPropertyOptional({
+    example: 'operativo',
+    enum: ESTADOS_BUS,
+  })
+  @Transform(({ value }) => normalizarEstadoBus(value))
   @IsOptional()
   @IsString()
-  // Esto asegura que solo acepte estados válidos
-  @IsIn(['operativo', 'mantenimiento', 'fuera de servicio']) 
+  @IsIn(ESTADOS_BUS)
   estado?: string;
 }
