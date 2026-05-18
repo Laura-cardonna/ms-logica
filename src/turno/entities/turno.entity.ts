@@ -19,6 +19,12 @@ export class Turno {
     @Column()
     estado?: string;
 
+    @Column({ name: 'estadoBusConfirmado', nullable: true })
+    estadoBusConfirmado?: string;
+
+    @Column({ name: 'observaciones', nullable: true })
+    observaciones?: string;
+
     @ManyToOne(() => Conductor, (conductor) => conductor.turnos)
     @JoinColumn({ name: 'conductor_id' })
     conductor?: Conductor;

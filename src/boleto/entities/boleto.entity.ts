@@ -3,10 +3,6 @@ import { Programacion } from 'src/programacion/entities/programacion.entity';
 import { MetodoPagoCiudadano } from 'src/metodo_pago_ciudadano/entities/metodo_pago_ciudadano.entity';
 import { Ruta } from 'src/ruta/entities/ruta.entity';
 import { Ciudadano } from 'src/ciudadano/entities/ciudadano.entity';
-import { Validacion } from 'src/validacion/entities/validacion.entity';
-import { OneToMany } from 'typeorm';
-
-
 
 @Entity('boletos')
 @Unique(['numeroBoleto'])
@@ -44,7 +40,4 @@ export class Boleto {
     @ManyToOne(() => Ciudadano)
     @JoinColumn({ name: 'ciudadano_id' })
     ciudadano?: Ciudadano;
-
-    @OneToMany(() => Validacion, (validacion) => validacion.boleto)
-    validaciones?: Validacion[];
 }

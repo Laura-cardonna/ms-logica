@@ -1,34 +1,48 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+// 📁 src/incidente/incidente.controller.ts
+import { Controller, Get, Post, Body, Param, Query, UseGuards, ParseIntPipe, Patch, Req } from '@nestjs/common';
 import { IncidenteService } from './incidente.service';
-import { CreateIncidenteDto } from './dto/create-incidente.dto';
-import { UpdateIncidenteDto } from './dto/update-incidente.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
-@Controller('incidente')
+@Controller('admin/incidentes')
+@UseGuards(JwtAuthGuard) // 🛡️ Protegido para personal administrativo
 export class IncidenteController {
   constructor(private readonly incidenteService: IncidenteService) {}
 
-  @Post()
-  create(@Body() createIncidenteDto: CreateIncidenteDto) {
-    return this.incidenteService.create(createIncidenteDto);
+  @Get('reportes/tendencia')
+  async obtenerTendenciaIncidentes(@Query('empresaId') empresaId?: string) {
+    const filtro = { 
+      empresaId: empresaId && empresaId !== 'todas' ? parseInt(empresaId, 10) : undefined 
+    };
+    return await this.incidenteService.getTendenciaIncidentes(filtro);
+  }
+  
+  @Get('bus/:busId')
+  async verHistorialDelBus(
+    @Param('busId', ParseIntPipe) busId: number,
+    @Query('tipo') tipo?: string,
+    @Query('estado') estado?: string,
+  ) {
+    return await this.incidenteService.obtenerHistorialPorBus(busId, { tipo, estado });
   }
 
-  @Get()
-  findAll() {
-    return this.incidenteService.findAll();
+  @Get('bus/:busId/estadisticas')
+  async verEstadisticasDelBus(@Param('busId', ParseIntPipe) busId: number) {
+    return await this.incidenteService.obtenerEstadisticasPorBus(busId);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.incidenteService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateIncidenteDto: UpdateIncidenteDto) {
-    return this.incidenteService.update(+id, updateIncidenteDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.incidenteService.remove(+id);
+  @Patch(':id/seguimiento')
+  async agregarSeguimiento(
+    @Param('id', ParseIntPipe) incidenteId: number,
+    @Body() body: { estado?: 'pendiente' | 'en_revision' | 'resuelto'; comentario?: string },
+    @Req() req: any
+  ) {
+    // Sacamos el nombre del administrador desde el token JWT
+    const adminNombre = req.user.nombre || 'Administrador Central'; 
+    
+    return await this.incidenteService.actualizarSeguimiento(incidenteId, {
+      estado: body.estado,
+      comentario: body.comentario,
+      adminNombre
+    });
   }
 }

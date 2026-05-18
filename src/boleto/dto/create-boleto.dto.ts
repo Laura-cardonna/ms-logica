@@ -7,17 +7,17 @@ export class CreateBoletoDto {
   @Type(() => Number)
   @IsInt()
   @IsPositive()
-  bus_id: number;
+  bus_id?: number;
 
   @ApiProperty({ example: 3 })
   @Type(() => Number)
   @IsInt()
   @IsPositive()
-  metodoPagoCiudadano_id: number;
+  metodoPagoCiudadano_id?: number;
 
   @ApiProperty({ example: 7 })
   @Type(() => Number)
   @IsInt()
   @IsPositive()
-  paraderoAbordaje_id: number;
+  paraderoAbordaje_id?: number;
 }

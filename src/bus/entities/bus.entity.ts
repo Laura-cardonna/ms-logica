@@ -7,6 +7,7 @@ import {
   OneToMany,
   JoinColumn,
   Index,
+  AfterLoad, // 👈 Importamos el hook nativo de TypeORM
 } from 'typeorm';
 import { Empresa } from 'src/empresa/entities/empresa.entity';
 import { Gps } from 'src/gps/entities/gps.entity';
@@ -66,4 +67,13 @@ export class Bus {
 
   @OneToMany(() => IncidenteBus, (incidenteBus) => incidenteBus.bus)
   incidentesBus?: IncidenteBus[];
+
+  // 🎯 GANCHO AUTOMÁTICO: Formatea la URL en tiempo de ejecución para evitar URLs quemadas en la BD
+  @AfterLoad()
+  formatearRecursosUrl() {
+    const apiBase = process.env.API_URL || 'http://localhost:3000';
+    if (this.fotoUrl && !this.fotoUrl.startsWith('http')) {
+      this.fotoUrl = `${apiBase}/uploads/${this.fotoUrl}`;
+    }
+  }
 }

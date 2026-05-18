@@ -9,6 +9,7 @@ import {
 import { Nodo } from 'src/nodo/entities/nodo.entity';
 import { Boleto } from 'src/boleto/entities/boleto.entity';
 import { RutaParadero } from 'src/ruta_paradero/entities/ruta_paradero.entity';
+import { Programacion } from 'src/programacion/entities/programacion.entity';
 
 @Entity('rutas')
 export class Ruta {
@@ -48,4 +49,7 @@ export class Ruta {
     cascade: false,
   })
   rutaParaderos?: RutaParadero[];
+
+  @OneToMany(() => Programacion, (programacion) => programacion.ruta)
+  programaciones?: Programacion[];
 }

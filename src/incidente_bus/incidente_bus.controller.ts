@@ -1,34 +1,27 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
 import { IncidenteBusService } from './incidente_bus.service';
 import { CreateIncidenteBusDto } from './dto/create-incidente_bus.dto';
-import { UpdateIncidenteBusDto } from './dto/update-incidente_bus.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
-@Controller('incidente-bus')
+@Controller('incidentes-buses')
 export class IncidenteBusController {
   constructor(private readonly incidenteBusService: IncidenteBusService) {}
 
-  @Post()
-  create(@Body() createIncidenteBusDto: CreateIncidenteBusDto) {
-    return this.incidenteBusService.create(createIncidenteBusDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.incidenteBusService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.incidenteBusService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateIncidenteBusDto: UpdateIncidenteBusDto) {
-    return this.incidenteBusService.update(+id, updateIncidenteBusDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.incidenteBusService.remove(+id);
+  @Post('reportar')
+  @UseGuards(JwtAuthGuard)
+  async crearReporte(
+    @Body() createDto: CreateIncidenteBusDto,
+    @Req() req: any,
+  ) {
+    // Extraemos el ID del conductor (string) del token de autenticación
+    const conductorId: string = req.user.id; 
+    
+    const reporte = await this.incidenteBusService.reportarIncidente(createDto, conductorId);
+    
+    return {
+      success: true,
+      message: '🚨 Reporte de incidente procesado y guardado correctamente en el sistema.',
+      data: reporte,
+    };
   }
 }
