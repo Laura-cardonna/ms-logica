@@ -22,8 +22,7 @@ import { CreateBoletoDto } from './dto/create-boleto.dto';
 import { UpdateBoletoDto } from './dto/update-boleto.dto';
 import type { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
-import { RecorridoViajeDto } from './dto/recorrido-viaje.dto';
-
+import { DetalleViajeResponseDto } from './dto/detalle-viaje-response.dto';
 @ApiTags('boletos')
 @ApiBearerAuth()
 @Controller('boletos')
@@ -33,10 +32,15 @@ export class BoletoController {
   @ApiOperation({ summary: 'Registrar abordaje y generar boleto' })
   @Post()
   async create(@Req() req: Request, @Body() body: any) {
-    const authHeader = (req.headers['authorization'] as string) || (req.headers['Authorization'] as string);
-    if (!authHeader) throw new UnauthorizedException('Authorization header missing');
+    const authHeader =
+      (req.headers['authorization'] as string) ||
+      (req.headers['Authorization'] as string);
+    if (!authHeader)
+      throw new UnauthorizedException('Authorization header missing');
 
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const token = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : authHeader;
     const SECRET = process.env.JWT_SECRET;
 
     let payload: any;
@@ -64,7 +68,7 @@ export class BoletoController {
     return await this.boletoService.create(data);
   }
 
-// Esta es la que busca Angular primero (y falla con 404)
+  // Esta es la que busca Angular primero (y falla con 404)
   @ApiOperation({ summary: 'Obtener boletos de un usuario (Ruta English)' })
   @Get('user/:id')
   findByUser(@Param('id') id: string) {
@@ -94,9 +98,9 @@ export class BoletoController {
   }
 
   @Get(':id/recorrido')
-async verRecorridoViaje(
-  @Param('id', ParseIntPipe) id: number,
-    ): Promise<RecorridoViajeDto> {
+  async verRecorridoViaje(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<DetalleViajeResponseDto> {
     return this.boletoService.obtenerRecorrido(id);
-}
+  }
 }

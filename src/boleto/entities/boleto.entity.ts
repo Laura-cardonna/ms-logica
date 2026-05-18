@@ -6,6 +6,8 @@ import { Ciudadano } from 'src/ciudadano/entities/ciudadano.entity';
 import { Validacion } from 'src/validacion/entities/validacion.entity';
 import { OneToMany } from 'typeorm';
 
+
+
 @Entity('boletos')
 @Unique(['numeroBoleto'])
 export class Boleto {
