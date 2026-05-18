@@ -4,25 +4,31 @@ import { RutaParadero } from 'src/ruta_paradero/entities/ruta_paradero.entity';
 
 @Entity('paraderos')
 export class Paradero {
-    @PrimaryGeneratedColumn()
-    id?: number;
+  @PrimaryGeneratedColumn()
+  id?: number;
 
-    @Column()
-    nombre?: string;
+  @Column()
+  nombre?: string;
 
-    @Column({ type: 'text', nullable: true })
-    descripcion?: string;
+  @Column({ type: 'text', nullable: true })
+  descripcion?: string;
 
-    @Column({ type: 'decimal', precision: 10, scale: 8 })
-    latitud?: number;
+  @Column({ type: 'decimal', precision: 10, scale: 8 })
+  latitud?: number;
 
-    @Column({ type: 'decimal', precision: 11, scale: 8 })
-    longitud?: number;
+  @Column({ type: 'decimal', precision: 11, scale: 8 })
+  longitud?: number;
 
-    @ManyToOne(() => Nodo, (nodo) => nodo.paraderos)
-    @JoinColumn({ name: 'nodo_id' })
-    nodo?: Nodo;
+  @Column({ nullable: true })
+  tipo?: string;
 
-    @OneToMany(() => RutaParadero, (rutaParadero) => rutaParadero.paradero)
-    rutaParaderos?: RutaParadero[];
+  @Column({ nullable: true })
+  codigo?: string;
+
+  @ManyToOne(() => Nodo, (nodo) => nodo.paraderos, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'nodo_id' })
+  nodo?: Nodo;
+
+  @OneToMany(() => RutaParadero, (rutaParadero) => rutaParadero.paradero)
+  rutaParaderos?: RutaParadero[];
 }

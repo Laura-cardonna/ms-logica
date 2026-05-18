@@ -1,7 +1,7 @@
 import { IsString, IsNumber, IsOptional, IsArray, IsNotEmpty, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class ParaderoRutaDto {
+export class ParaderoRutaInputDto {
   @IsNumber()
   @IsNotEmpty()
   paraderoId: number;
@@ -12,11 +12,10 @@ export class ParaderoRutaDto {
 }
 
 /**
- * DTO para crear una ruta
- * Puede crearse simple (sin paraderos) o completa (con paraderos)
- * HU-ENTR-2-009: Creación de nueva ruta
+ * DTO para crear una ruta completa con paraderos
+ * Cumple con HU-ENTR-2-009: Creación de nueva ruta
  */
-export class CreateRutaDto {
+export class CreateRutaCompletoDto {
   @IsString()
   @IsNotEmpty()
   nombre: string;
@@ -35,20 +34,14 @@ export class CreateRutaDto {
 
   @IsNumber()
   @IsOptional()
-  duracionEstimada?: number;
-
-  @IsNumber()
-  @IsOptional()
   nodoId?: number;
 
   /**
-   * OPCIONAL: Array de paraderos para crear ruta completa
-   * Mínimo 3 paraderos requeridos
-   * Sin paraderos duplicados
+   * Array de paraderos que conforman la ruta
+   * Debe tener mínimo 3 paraderos sin duplicados
    */
   @IsArray()
-  @IsOptional()
   @ValidateNested({ each: true })
-  @Type(() => ParaderoRutaDto)
-  paraderos?: ParaderoRutaDto[];
+  @Type(() => ParaderoRutaInputDto)
+  paraderos: ParaderoRutaInputDto[];
 }

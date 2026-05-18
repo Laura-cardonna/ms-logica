@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsNotEmpty, IsOptional, Min, Max, Matches } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsString, IsOptional } from 'class-validator';
 
 export class CreateParaderoDto {
   @IsString()
@@ -11,15 +11,15 @@ export class CreateParaderoDto {
 
   @IsNumber()
   @IsNotEmpty()
-  @Min(-90)
-  @Max(90)
   latitud: number;
 
   @IsNumber()
   @IsNotEmpty()
-  @Min(-180)
-  @Max(180)
   longitud: number;
+
+  @IsString()
+  @IsNotEmpty()
+  tipo: string;
 
   @IsNumber()
   @IsOptional()

@@ -1,38 +1,51 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
 import { Nodo } from 'src/nodo/entities/nodo.entity';
 import { Boleto } from 'src/boleto/entities/boleto.entity';
 import { RutaParadero } from 'src/ruta_paradero/entities/ruta_paradero.entity';
 
 @Entity('rutas')
 export class Ruta {
-    @PrimaryGeneratedColumn()
-    id?: number;
+  @PrimaryGeneratedColumn()
+  id?: number;
 
-    @Column()
-    nombre?: string;
+  @Column()
+  nombre?: string;
 
-    @Column({ type: 'text', nullable: true })
-    descripcion?: string;
+  @Column({ type: 'text', nullable: true })
+  descripcion?: string;
 
-    @Column({ type: 'decimal', precision: 10, scale: 2 })
-    tarifa?: number; // Precio de la tarifa
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  codigo?: string;
 
-    @Column({ type: 'enum', enum: ['activa', 'inactiva'], default: 'activa' })
-    estado?: string;
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  tarifa?: number;
 
-    @Column({ name: 'duracion_estimada', nullable: true })
-    duracionEstimada?: number; // en minutos
+  @Column({ type: 'enum', enum: ['activa', 'inactiva'], default: 'activa' })
+  estado?: string;
 
-    @ManyToOne(() => Nodo, (nodo) => nodo.rutas)
-    @JoinColumn({ name: 'nodo_id' })
-    nodo?: Nodo;
+  @Column({ name: 'duracion_estimada', nullable: true })
+  duracionEstimada?: number;
 
-    @OneToMany(() => Boleto, (boleto) => boleto.ruta)
-    boletos?: Boleto[];
+  @ManyToOne(() => Nodo, (nodo) => nodo.rutas, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'nodo_id' })
+  nodo?: Nodo;
 
-    @OneToMany(() => RutaParadero, (rutaParadero) => rutaParadero.ruta, { 
-        eager: false, 
-        cascade: false 
-    })
-    rutaParaderos?: RutaParadero[];
+  @OneToMany(() => Boleto, (boleto) => boleto.ruta)
+  boletos?: Boleto[];
+
+  @OneToMany(() => RutaParadero, (rutaParadero) => rutaParadero.ruta, {
+    eager: false,
+    cascade: false,
+  })
+  rutaParaderos?: RutaParadero[];
 }

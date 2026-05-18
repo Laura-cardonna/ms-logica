@@ -49,6 +49,18 @@ export class RutaController {
   }
 
   /**
+   * Obtiene el recorrido detallado de una ruta (paraderos con distancias y tiempos)
+   * Criterio de aceptación HU-ENTR-2-001: Se muestra el tiempo estimado total de recorrido
+   * Criterio de aceptación HU-ENTR-2-009: Se puede visualizar la ruta en un mapa con detalles de recorrido
+   * @param id ID de la ruta
+   * @returns DTO con información detallada del recorrido incluyendo distancias y tiempos calculados
+   */
+  @Get(':id/recorrido')
+  obtenerRecorrido(@Param('id') id: string) {
+    return this.rutaService.obtenerRecorrido(+id);
+  }
+
+  /**
    * Actualiza una ruta existente
    */
   @Patch(':id')
