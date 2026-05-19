@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateParaderoDto } from './dto/create-paradero.dto';
 import { UpdateParaderoDto } from './dto/update-paradero.dto';
 import { FindNearbyDto } from './dto/find-nearby.dto';
 import { Paradero } from './entities/paradero.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class ParaderoService {
@@ -232,5 +237,68 @@ export class ParaderoService {
     return resultados
       .sort((a, b) => (a.distancia_metros || 0) - (b.distancia_metros || 0))
       .slice(0, 5);
+  }
+
+  /**
+   * Busca los 5 paraderos más cercanos usando la fórmula Haversine en BD.
+   * Cumple HU-002: Distancia, límite de 5, rutas asociadas.
+   */
+  async buscarCercanos(lat: number, lng: number) {
+    if (lat === undefined || lng === undefined) {
+      throw new BadRequestException('Las coordenadas son requeridas.');
+    }
+
+    // 1. CÁLCULO HAVERSINE EN BD: Súper rápido, sin peticiones externas.
+    const cercanosRaw = await this.paraderoRepository
+      .createQueryBuilder('paradero')
+      .select(['paradero.id AS id'])
+      // Radio de la tierra en metros: 6371000
+      .addSelect(
+        `(6371000 * acos(cos(radians(:lat)) * cos(radians(paradero.latitud)) * cos(radians(paradero.longitud) - radians(:lng)) + sin(radians(:lat)) * sin(radians(paradero.latitud))))`,
+        'distancia_metros'
+      )
+      .setParameters({ lat, lng })
+      .orderBy('distancia_metros', 'ASC')
+      .limit(5) // ✓ Retornar 5 más cercanos ordenados
+      .getRawMany();
+
+    if (!cercanosRaw.length) return [];
+
+    const idsCercanos = cercanosRaw.map(raw => raw.id);
+
+    // 2. Hidratar las entidades completas trayendo TODAS las relaciones (Rutas y Nodos)
+    const paraderosCompletos = await this.paraderoRepository.find({
+      where: { id: In(idsCercanos) },
+      relations: [
+        'nodo',
+        'rutaParaderos', 
+        'rutaParaderos.ruta', 
+        'rutaParaderos.ruta.nodo'
+      ],
+    });
+
+    // 3. Mapear respuesta final
+    return cercanosRaw.map(raw => {
+      const paradero = paraderosCompletos.find(p => p.id === raw.id);
+      
+      // ✓ Mostrar qué rutas pasan por cada paradero (limpiando duplicados)
+      const rutasUnicas = paradero?.rutaParaderos?.map(rp => ({
+        id: rp.ruta?.id,
+        nombre: rp.ruta?.nombre,
+      })).filter((value, index, self) => 
+        index === self.findIndex((t) => t.id === value.id)
+      ) || [];
+
+      return {
+        id: paradero?.id,
+        nombre: paradero?.nombre,
+        descripcion: paradero?.descripcion,
+        latitud: paradero?.latitud,
+        longitud: paradero?.longitud,
+        distancia_metros: Math.round(Number(raw.distancia_metros)), // ✓ Distancias en metros
+        nodo: paradero?.nodo,
+        rutas: rutasUnicas
+      };
+    });
   }
 }

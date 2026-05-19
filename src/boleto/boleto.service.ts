@@ -26,7 +26,7 @@ import {
 @Injectable()
 export class BoletoService {
   constructor(
-    private readonly dataSource: DataSource,
+   private readonly dataSource: DataSource,
     @InjectRepository(Boleto)
     private readonly boletoRepository: Repository<Boleto>,
     @InjectRepository(Ciudadano)
@@ -36,8 +36,12 @@ export class BoletoService {
     @InjectRepository(MetodoPagoCiudadano)
     private readonly metodoPagoCiudadanoRepository: Repository<MetodoPagoCiudadano>,
     @InjectRepository(Validacion)
-    private readonly validacionRepository: Repository<Validacion>, // 👈 TU REPOSITORIO INYECTADO CORRECTAMENTE
-  ) {}
+    private readonly validacionRepository: Repository<Validacion>,
+    // 👇 NUEVAS INYECCIONES PARA CUMPLIR SOLID
+    @InjectRepository(RutaParadero)
+    private readonly rutaParaderoRepository: Repository<RutaParadero>,
+    @InjectRepository(Turno)
+    private readonly turnoRepository: Repository<Turno>,) {}
 
   private readonly boletoRelations: FindOptionsRelations<Boleto> = {
     ciudadano: true,
@@ -394,93 +398,88 @@ export class BoletoService {
     return tarjetasEncontradas;
   }
 
-  async obtenerRecorrido(boletoId: number): Promise<DetalleViajeResponseDto> {
+  async obtenerRecorrido(boletoId: number) {
     const boleto = await this.boletoRepository.findOne({
       where: { id: boletoId },
-      relations: ['ruta', 'programacion', 'programacion.bus'],
+      relations: ['ruta', 'programacion', 'programacion.bus', 'programacion.ruta'],
     });
 
     if (!boleto) {
       throw new NotFoundException('El viaje especificado no existe');
     }
 
-    let coordenadasMapa: CoordenadaRutaDto[] = [];
+    // 1. Obtener la ruta estática (todos los paraderos por donde pasa el bus)
+    let rutaParaderos: RutaParadero[] = [];
     if (boleto.ruta?.id) {
-      const rutaParaderoRepository =
-        this.dataSource.getRepository(RutaParadero);
-      const rutaParaderos = await rutaParaderoRepository.find({
+      rutaParaderos = await this.rutaParaderoRepository.find({
         where: { ruta: { id: boleto.ruta.id } },
         relations: ['paradero'],
         order: { ordenSecuencial: 'ASC' },
       });
-
-      coordenadasMapa = rutaParaderos.map((rp) => ({
-        ordenSecuencial: rp.ordenSecuencial || 0,
-        latitud: rp.paradero?.latitud ? Number(rp.paradero.latitud) : 0,
-        longitud: rp.paradero?.longitud ? Number(rp.paradero.longitud) : 0,
-      }));
     }
 
-    const validacionRepository = this.dataSource.getRepository(Validacion);
-    const validacionesEntidades = await validacionRepository.find({
+    // 2. Obtener las validaciones dinámicas del usuario (Abordaje/Descenso)
+    const validacionesEntidades = await this.validacionRepository.find({
       where: { boleto: { id: boletoId } },
       relations: ['paradero'],
       order: { fecha: 'ASC' },
     });
 
+    // 3. ✓ Bus placa y nombre del conductor
     let conductorNombre = 'No asignado';
     if (boleto.programacion?.bus?.id && boleto.programacion?.fecha) {
-      const turnoRepository = this.dataSource.getRepository(Turno);
-      const turno = await turnoRepository.findOne({
+      const turno = await this.turnoRepository.findOne({
         where: {
           bus: { id: boleto.programacion.bus.id },
           fecha: boleto.programacion.fecha,
         },
         relations: ['conductor'],
       });
-
-      if (turno?.conductor?.nombre) {
-        conductorNombre = String(turno.conductor.nombre);
-      }
+      if (turno?.conductor?.nombre) conductorNombre = String(turno.conductor.nombre);
     }
 
-    let tiempoTotalMinutos = 0;
-    const abordaje = validacionesEntidades.find((v) => v.tipo === 'abordaje');
-    const descenso = validacionesEntidades.find((v) => v.tipo === 'descenso');
+    // 4. Mapear el historial del recorrido cruzando ruta y validaciones
+    const coordenadasMapa = rutaParaderos.map((rp) => ({
+      ordenSecuencial: rp.ordenSecuencial || 0,
+      latitud: rp.paradero?.latitud || 0,
+      longitud: rp.paradero?.longitud || 0,
+    }));
 
-    if (abordaje?.fecha && descenso?.fecha) {
-      const ms = descenso.fecha.getTime() - abordaje.fecha.getTime();
-      tiempoTotalMinutos = Math.round(ms / 60000);
-    } else if (boleto.inicioViaje && boleto.finViaje) {
-      const ms = boleto.finViaje.getTime() - boleto.inicioViaje.getTime();
-      tiempoTotalMinutos = Math.round(ms / 60000);
-    }
-
-    const validacionesMapeadas: ValidacionViajeDto[] =
-      validacionesEntidades.map((val) => ({
-        tipo: val.tipo || 'desconocido',
-        horaExacta: val.fecha || new Date(),
+    // 5. Mapear validaciones
+    const validaciones: ValidacionViajeDto[] = validacionesEntidades
+      .filter((v) => v.tipo && v.fecha)
+      .map((v) => ({
+        tipo: v.tipo!,
+        horaExacta: v.fecha!,
         paradero: {
-          id: val.paradero?.id || 0,
-          nombre: String(
-            (val.paradero as any)?.nombre || 'Paradero sin nombre',
-          ),
-          latitud: val.paradero?.latitud ? Number(val.paradero.latitud) : 0,
-          longitud: val.paradero?.longitud ? Number(val.paradero.longitud) : 0,
+          id: v.paradero?.id || 0,
+          nombre: v.paradero?.nombre || '',
+          latitud: v.paradero?.latitud || 0,
+          longitud: v.paradero?.longitud || 0,
         },
       }));
 
+    // 6. Calcular tiempo total (desde primera hasta última validación)
+    let tiempoTotalMinutos = 0;
+    if (validaciones.length > 1) {
+      const primeraValidacion = validaciones[0];
+      const ultimaValidacion = validaciones[validaciones.length - 1];
+      tiempoTotalMinutos = Math.round(
+        (ultimaValidacion.horaExacta.getTime() - primeraValidacion.horaExacta.getTime()) / 60000
+      );
+    }
+
     return {
-      boletoId: Number(boleto.id || 0),
+      boletoId: boleto.id!,
       ruta: {
-        nombre: String(boleto.ruta?.nombre || 'Ruta sin nombre'),
+        nombre: boleto.ruta?.nombre || 'Ruta sin nombre',
         coordenadasMapa,
       },
-      validaciones: validacionesMapeadas,
+      validaciones,
       tiempoTotalMinutos,
       operacion: {
-        busPlaca: String(boleto.programacion?.bus?.placa || 'Sin placa'),
-        conductorNombre,
+        busPlaca: boleto.programacion?.bus?.placa || 'Sin placa',
+        conductorNombre: conductorNombre,
       },
     };
   }
