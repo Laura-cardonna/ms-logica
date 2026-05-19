@@ -14,6 +14,7 @@ export async function seedCiudadanos(dataSource: DataSource) {
 
   const ciudadanos = [
     {
+      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       nombre: 'Maria Perez',
       cedula: '12345',
       telefono: '3001234567',
@@ -22,6 +23,7 @@ export async function seedCiudadanos(dataSource: DataSource) {
       direccion: direcciones[0],
     },
     {
+      id: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
       nombre: 'Juan Rodriguez',
       cedula: '67890',
       telefono: '3109876543',
@@ -30,6 +32,7 @@ export async function seedCiudadanos(dataSource: DataSource) {
       direccion: direcciones[1] ?? direcciones[0],
     },
     {
+      id: 'e8b5f2a1-3d4c-4b6e-9f8a-1c2d3e4f5a6b',
       nombre: 'Usuario Sin Saldo',
       cedula: '55555',
       telefono: '3150000000',

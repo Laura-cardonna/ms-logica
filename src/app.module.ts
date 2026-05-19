@@ -50,6 +50,7 @@ import { GrupoPersonaModule } from './grupo_persona/grupo_persona.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true,
         autoLoadEntities: true,
+        migrationsRun: false,
       }),
     }),
     EmpresaModule,
