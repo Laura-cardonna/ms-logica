@@ -24,8 +24,31 @@ export class ParaderoService {
    * @returns Paradero creado
    */
   async create(createParaderoDto: CreateParaderoDto): Promise<Paradero> {
-    const paradero = this.paraderoRepository.create(createParaderoDto);
-    return this.paraderoRepository.save(paradero);
+    // 1. Generamos el código único basado en el nombre
+    const codigoUnico = this.generarCodigoParadero(createParaderoDto.nombre);
+
+    // 2. Preparamos los datos
+    const paraderoData = {
+      ...createParaderoDto,
+      codigo: codigoUnico, 
+    };
+
+    // 3. Forzamos el tipado a : Paradero (Esto quita la confusión de TypeScript)
+    const paradero = this.paraderoRepository.create(paraderoData) as Paradero;
+
+    // 4. Guardamos y retornamos
+    return await this.paraderoRepository.save(paradero);
+  } private generarCodigoParadero(nombre: string): string {
+    const iniciales = nombre
+      .split(' ')
+      .slice(0, 2)
+      .map((palabra) => palabra.charAt(0).toUpperCase())
+      .join('')
+      .substring(0, 3)
+      .padEnd(3, 'P');
+
+    const numAleatorio = Math.floor(1000 + Math.random() * 9000); // 4 dígitos
+    return `PAR-${iniciales}-${numAleatorio}`;
   }
 
   /**
