@@ -8,11 +8,9 @@ import { Foto } from 'src/foto/entities/foto.entity';
 import { Bus } from 'src/bus/entities/bus.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([IncidenteBus, Turno, Foto, Bus])
-  ],
+  imports: [TypeOrmModule.forFeature([IncidenteBus, Turno, Foto, Bus])],
   controllers: [IncidenteBusController],
   providers: [IncidenteBusService],
-  exports: [IncidenteBusService]
+  exports: [IncidenteBusService],
 })
 export class IncidenteBusModule {}

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IncidenteBus } from './entities/incidente_bus.entity';
@@ -17,7 +21,7 @@ export class IncidenteBusService {
 
     @InjectRepository(Turno)
     private readonly turnoRepository: Repository<Turno>,
-    
+
     @InjectRepository(Foto)
     private readonly fotoRepository: Repository<Foto>,
 
@@ -25,9 +29,12 @@ export class IncidenteBusService {
     private readonly busRepository: Repository<Bus>,
   ) {}
 
-// 📁 Reemplaza ÚNICAMENTE este método dentro de tu src/incidente_bus/incidente_bus.service.ts
+  // 📁 Reemplaza ÚNICAMENTE este método dentro de tu src/incidente_bus/incidente_bus.service.ts
 
-  async reportarIncidente(dto: CreateIncidenteBusDto, usuarioId: string): Promise<IncidenteBus> {
+  async reportarIncidente(
+    dto: CreateIncidenteBusDto,
+    usuarioId: string,
+  ): Promise<IncidenteBus> {
     // 1. Buscar turno 'en_curso' con el ID del conductor como string
     const turnoActivo = await this.turnoRepository.findOne({
       where: {
@@ -48,8 +55,8 @@ export class IncidenteBusService {
       tipo: dto.tipo,
       gravedad: dto.gravedad,
       descripcion: dto.descripcion,
-      latitud: dto.latitud,   
-      longitud: dto.longitud, 
+      latitud: dto.latitud,
+      longitud: dto.longitud,
       bus: turnoActivo.bus,
       turno: turnoActivo,
     });
@@ -57,7 +64,9 @@ export class IncidenteBusService {
     // 3. Almacenamiento de evidencias fotográficas (Modificado para escribir el archivo físico)
     if (dto.base64Fotos && dto.base64Fotos.length > 0) {
       if (dto.base64Fotos.length > 5) {
-        throw new BadRequestException('El límite estricto es de 5 fotografías.');
+        throw new BadRequestException(
+          'El límite estricto es de 5 fotografías.',
+        );
       }
 
       // 🛡️ Determinamos la ruta de la carpeta 'uploads' en la raíz del proyecto
@@ -72,17 +81,25 @@ export class IncidenteBusService {
 
         try {
           // Limpiamos el prefijo del base64 si el cliente lo envía (ej: data:image/jpeg;base64,)
-          const limpiarBase64 = base64Text.replace(/^data:image\/\w+;base64,/, '');
-          
+          const limpiarBase64 = base64Text.replace(
+            /^data:image\/\w+;base64,/,
+            '',
+          );
+
           // 💾 Guardamos el archivo binario real en la carpeta uploads
           fs.writeFileSync(rutaCompleta, limpiarBase64, { encoding: 'base64' });
 
           const fotoEntidad = new Foto();
-          fotoEntidad.url = nombreArchivo; 
+          fotoEntidad.url = nombreArchivo;
           return fotoEntidad;
         } catch (error) {
-          console.error('Error al escribir el archivo de imagen en disco:', error);
-          throw new BadRequestException('Ocurrió un fallo guardando las imágenes adjuntas.');
+          console.error(
+            'Error al escribir el archivo de imagen en disco:',
+            error,
+          );
+          throw new BadRequestException(
+            'Ocurrió un fallo guardando las imágenes adjuntas.',
+          );
         }
       });
     }
@@ -108,8 +125,13 @@ export class IncidenteBusService {
         .filter((inc) => {
           const empresaDelBus = inc.bus?.empresa?.id;
           const gravedad = inc.gravedad;
-          console.log(`🔍 Incidente ${inc.id}: empresa=${empresaDelBus}, gravedad=${gravedad}`);
-          return empresaDelBus === empresaId && (gravedad === 'alto' || gravedad === 'critico');
+          console.log(
+            `🔍 Incidente ${inc.id}: empresa=${empresaDelBus}, gravedad=${gravedad}`,
+          );
+          return (
+            empresaDelBus === empresaId &&
+            (gravedad === 'alto' || gravedad === 'critico')
+          );
         })
         .map((inc) => ({
           id: inc.id,
@@ -124,12 +146,14 @@ export class IncidenteBusService {
           empresaId: inc.bus?.empresa?.id,
         }));
 
-      console.log(`✅ Alertas filtradas para empresa ${empresaId}:`, alertas.length);
+      console.log(
+        `✅ Alertas filtradas para empresa ${empresaId}:`,
+        alertas.length,
+      );
       return alertas;
     } catch (error) {
       console.error('❌ Error en obtenerAlertasGerente:', error);
       throw error;
     }
   }
-
 }
