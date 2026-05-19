@@ -1,15 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-  Req,
-  ParseIntPipe,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Req, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BoletoService } from './boleto.service';
 import { UpdateBoletoDto } from './dto/update-boleto.dto';
@@ -40,8 +29,8 @@ export class BoletoController {
     // Preparamos los datos normalizados respetando exactamente tu DTO y el Service
     const data = {
       bus_id: Number(body.bus_id),
-      paraderoAbordaje_id: Number(body.paraderoAbordaje_id), // 🔄 Corregido match con DTO
-      metodoPagoCiudadano_id: Number(body.metodoPagoCiudadano_id), // 🔄 Corregido match con DTO
+      paraderoAbordaje_id: Number(body.paraderoAbordaje_id), 
+      metodoPagoCiudadano_id: Number(body.metodoPagoCiudadano_id), 
       ciudadano_id: ciudadanoId,
     };
 

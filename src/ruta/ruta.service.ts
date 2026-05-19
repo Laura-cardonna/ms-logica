@@ -225,7 +225,8 @@ export class RutaService {
         'ruta.duracionEstimada',
         'rutaParadero.id',
         'rutaParadero.ordenSecuencial',
-        'rutaParadero.horaLlegadaEstimada',
+        'rutaParadero.distanciaDesdeAnteriorMetros', // ✅ Columna correcta
+        'rutaParadero.tiempoDesdeAnteriorMinutos',   // ✅ Columna correcta
         'paradero.id',
         'paradero.nombre',
         'paradero.descripcion',

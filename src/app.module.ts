@@ -30,6 +30,7 @@ import { ValidacionModule } from './validacion/validacion.module';
 import { DestinatarioPersonaModule } from './destinatario_persona/destinatario_persona.module';
 import { DestinatarioGrupoModule } from './destinatario_grupo/destinatario_grupo.module';
 import { GrupoPersonaModule } from './grupo_persona/grupo_persona.module';
+import { ReportesModule } from './reportes/reportes.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { GrupoPersonaModule } from './grupo_persona/grupo_persona.module';
     DestinatarioPersonaModule,
     DestinatarioGrupoModule,
     GrupoPersonaModule,
+    ReportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
