@@ -20,7 +20,7 @@ export class Bus {
   @PrimaryGeneratedColumn()
   id?: number;
 
-  @Index({ unique: true })
+// 💻 SOLUCIÓN: Deja solo el decorador @Column con unique: true
   @Column({ unique: true })
   placa?: string;
 

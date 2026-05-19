@@ -5,6 +5,7 @@ import { IncidenteBus } from './entities/incidente_bus.entity';
 import { CreateIncidenteBusDto } from './dto/create-incidente_bus.dto';
 import { Turno } from 'src/turno/entities/turno.entity';
 import { Foto } from 'src/foto/entities/foto.entity';
+import { Bus } from 'src/bus/entities/bus.entity';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -19,6 +20,9 @@ export class IncidenteBusService {
     
     @InjectRepository(Foto)
     private readonly fotoRepository: Repository<Foto>,
+
+    @InjectRepository(Bus)
+    private readonly busRepository: Repository<Bus>,
   ) {}
 
 // 📁 Reemplaza ÚNICAMENTE este método dentro de tu src/incidente_bus/incidente_bus.service.ts
@@ -84,6 +88,48 @@ export class IncidenteBusService {
     }
 
     return await this.incidenteBusRepository.save(nuevoIncidente);
+  }
+
+  /**
+   * 🚨 Obtiene las alertas de incidentes graves (alto o crítico) de una empresa
+   * Retorna: fecha_creacion, placa del bus, tipo de incidente y gravedad
+   * Ordenados del más reciente al más antiguo
+   */
+  async obtenerAlertasGerente(empresaId: number): Promise<any[]> {
+    try {
+      // Enfoque alternativo: traer todos los incidentes con relaciones y filtrar en memoria
+      const incidentes = await this.incidenteBusRepository.find({
+        relations: ['bus', 'bus.empresa'],
+        order: { timestamp: 'DESC' },
+      });
+
+      // Filtrar por empresa y gravedad en memoria
+      const alertas = incidentes
+        .filter((inc) => {
+          const empresaDelBus = inc.bus?.empresa?.id;
+          const gravedad = inc.gravedad;
+          console.log(`🔍 Incidente ${inc.id}: empresa=${empresaDelBus}, gravedad=${gravedad}`);
+          return empresaDelBus === empresaId && (gravedad === 'alto' || gravedad === 'critico');
+        })
+        .map((inc) => ({
+          id: inc.id,
+          fechaCreacion: inc.timestamp,
+          placaBus: inc.bus?.placa,
+          tipoIncidente: inc.tipo,
+          gravedad: inc.gravedad,
+          descripcion: inc.descripcion,
+          latitud: inc.latitud,
+          longitud: inc.longitud,
+          busId: inc.bus?.id,
+          empresaId: inc.bus?.empresa?.id,
+        }));
+
+      console.log(`✅ Alertas filtradas para empresa ${empresaId}:`, alertas.length);
+      return alertas;
+    } catch (error) {
+      console.error('❌ Error en obtenerAlertasGerente:', error);
+      throw error;
+    }
   }
 
 }
