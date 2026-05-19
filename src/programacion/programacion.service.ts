@@ -1,20 +1,22 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateProgramacionDto } from './dto/create-programacion.dto';
 import { Programacion, EstadoProgramacion } from './entities/programacion.entity';
 import { Bus } from 'src/bus/entities/bus.entity';
 import { Ruta } from 'src/ruta/entities/ruta.entity';
-import {BadRequestException } from '@nestjs/common';
+import { Turno } from 'src/turno/entities/turno.entity'; 
+
 @Injectable()
 export class ProgramacionService {
   constructor(
     @InjectRepository(Programacion) private readonly programacionRepository: Repository<Programacion>,
     @InjectRepository(Bus) private readonly busRepository: Repository<Bus>,
     @InjectRepository(Ruta) private readonly rutaRepository: Repository<Ruta>,
+    @InjectRepository(Turno) private readonly turnoRepository: Repository<Turno>,
   ) {}
 
-async create(createDto: CreateProgramacionDto) {
+  async create(createDto: CreateProgramacionDto) {
     const { busId, rutaId, fecha, horaSalida, margenToleranciaMinutos, tipoRecurrencia } = createDto;
 
     // 1. Validaciones de existencia y estado del Bus
@@ -29,7 +31,6 @@ async create(createDto: CreateProgramacionDto) {
     if (!ruta) throw new NotFoundException(`Ruta ${rutaId} no encontrada`);
 
     // --- VALIDACIÓN DE FECHA Y HORA PASADA ---
-    // Extraemos los componentes de fecha y hora puros para construir la fecha propuesta en hora local
     const fechaValidarClean = typeof fecha === 'string' ? fecha.split('T')[0] : fecha;
     const [vYear, vMonth, vDay] = String(fechaValidarClean).split('-').map(Number);
     const [vHoras, vMinutos] = horaSalida.split(':').map(Number);
@@ -38,40 +39,84 @@ async create(createDto: CreateProgramacionDto) {
     const ahora = new Date();
 
     if (fechaHoraPropuesta < ahora) {
-      throw new BadRequestException(
-        `No se puede crear una programación en el pasado. La fecha y hora ingresadas ya ocurrieron.`
-      );
+      throw new BadRequestException(`No se puede crear una programación en el pasado. La fecha y hora ingresadas ya ocurrieron.`);
     }
-    // ------------------------------------------
 
     // --- ARREGLO DE ZONA HORARIA ---
-    // Nos aseguramos de leer la fecha como string puro y evitar que "new Date()" le reste horas locales
     const fechaBaseClean = typeof fecha === 'string' ? fecha.split('T')[0] : fecha;
     const [year, month, day] = String(fechaBaseClean).split('-').map(Number);
     const fechaLocalCorrecta = new Date(year, month - 1, day);
 
-    // 2. Lógica de Recurrencia (Pasamos la fecha ya normalizada en local)
     const fechasParaProgramar = this.generarFechas(fechaLocalCorrecta, tipoRecurrencia || 'none');
     const resultados: Programacion[] = [];
 
-    // Convertimos la hora elegida a minutos totales del día
     const [horasNueva, minutosNueva] = horaSalida.split(':').map(Number);
     const minutosNuevaProg = horasNueva * 60 + minutosNueva;
 
     for (const f of fechasParaProgramar) {
-      // Formateamos de forma manual y exacta a YYYY-MM-DD sin usar toISOString() que cambia el día
       const yyyy = f.getFullYear();
       const mm = String(f.getMonth() + 1).padStart(2, '0');
       const dd = String(f.getDate()).padStart(2, '0');
       const fechaStr = `${yyyy}-${mm}-${dd}`;
       
-      // 3. Validar Choque de Horario (Buscamos todas las programaciones cargando la relación)
+// =========================================================================
+      // 2. VALIDACIÓN HISTORIA HU-011: CONDUCTOR ASIGNADO EN ESE HORARIO (AJUSTADO A VISTAS)
+      // =========================================================================
+      const turnosDelBus = await this.turnoRepository.find({
+        where: { bus: { id: busId } },
+        relations: ['bus']
+      });
+
+      let tieneConductorAsignado = false;
+
+      for (const turno of turnosDelBus) {
+        // Ignorar de inmediato si el turno ya fue cerrado/finalizado por el operador
+        if (turno.estado && turno.estado.toLowerCase() === 'finalizado') {
+          continue;
+        }
+
+        if (turno.fecha && turno.horaInicio && turno.horaFin) {
+          // 1. Extraer la fecha del turno como "YYYY-MM-DD" de forma limpia
+          let tFechaStr = '';
+          if (turno.fecha instanceof Date) {
+            const tyyyy = turno.fecha.getFullYear();
+            const tmm = String(turno.fecha.getMonth() + 1).padStart(2, '0');
+            const tdd = String(turno.fecha.getDate()).padStart(2, '0');
+            tFechaStr = `${tyyyy}-${tmm}-${tdd}`;
+          } else {
+            tFechaStr = String(turno.fecha).split('T')[0];
+          }
+
+          // 2. Si la fecha del turno coincide con el día evaluado en la ruta
+          if (tFechaStr === fechaStr) {
+            // Extraer las horas en formato 24h plano (HH:MM) evitando distorsiones del servidor
+            const horaInicioRaw = turno.horaInicio.toLocaleTimeString('es-CO', { hour12: false, hour: '2-digit', minute: '2-digit' });
+            const horaFinRaw = turno.horaFin.toLocaleTimeString('es-CO', { hour12: false, hour: '2-digit', minute: '2-digit' });
+
+            const minutosInicioTurno = this.HHMMtoMinutos(horaInicioRaw);
+            const minutosFinTurno = this.HHMMtoMinutos(horaFinRaw);
+
+            // Validar si los minutos de salida de la ruta caen dentro del turno operativo
+            if (minutosNuevaProg >= minutosInicioTurno && minutosNuevaProg <= minutosFinTurno) {
+              tieneConductorAsignado = true;
+              break; // El bus está cubierto, salimos del bucle con éxito
+            }
+          }
+        }
+      }
+
+      if (!tieneConductorAsignado) {
+        throw new BadRequestException(
+          `No se puede programar la ruta a las ${horaSalida} el día ${fechaStr}. El bus ${busId} no tiene ningún conductor con turno operativo asignado para ese rango horario.`
+        );
+      }
+      // =========================================================================
+      // 3. Validar Choque de Horario
       const todasLasProgramaciones = await this.programacionRepository.find({
         where: { bus: { id: busId } },
         relations: ['bus']
       });
 
-      // Filtramos exactamente por el string "YYYY-MM-DD" real guardado en BD
       const programacionesDelDia = todasLasProgramaciones.filter(p => {
         let pFechaStr = '';
         if (p.fecha instanceof Date) {
@@ -85,16 +130,12 @@ async create(createDto: CreateProgramacionDto) {
         return pFechaStr === fechaStr;
       });
 
-      console.log(`[Validación] Bus ${busId} el día ${fechaStr} tiene ${programacionesDelDia.length} viajes agendados.`);
-
       for (const progExistente of programacionesDelDia) {
         const horaExistenteRaw = progExistente.horaSalida || "00:00:00";
         const [horasExistente, minutosExistente] = horaExistenteRaw.split(':').map(Number);
         const minutesExistenteProg = horasExistente * 60 + minutosExistente;
 
         const diferenciaMinutos = Math.abs(minutosNuevaProg - minutesExistenteProg);
-
-        console.log(`-> Comparando nueva (${horaSalida}) con existente (${horaExistenteRaw}). Diferencia: ${diferenciaMinutos}min`);
 
         if (diferenciaMinutos < 60) {
           throw new ConflictException(
@@ -119,20 +160,16 @@ async create(createDto: CreateProgramacionDto) {
     }
 
     return resultados;
-}
+  }
 
   private async validarDisponibilidad(busId: number, fecha: string, hora: string, margen: number) {
     const progs = await this.programacionRepository.find({
       where: { bus: { id: busId }, fecha: new Date(fecha), estado: 'programado' }
     });
-
     const minutosNueva = this.HHMMtoMinutos(hora);
-
     for (const p of progs) {
-      // CORREGIDO: Asegura un string válido si horaSalida llega a ser undefined
       const minutosExistente = this.HHMMtoMinutos(p.horaSalida || '00:00'); 
       const diferencia = Math.abs(minutosNueva - minutosExistente);
-
       if (diferencia < margen) {
         throw new ConflictException(`Conflicto de horario: El bus ya está ocupado en un rango de ${margen} minutos.`);
       }
@@ -142,11 +179,9 @@ async create(createDto: CreateProgramacionDto) {
   private generarFechas(inicio: Date, tipo: string): Date[] {
     const fechas = [new Date(inicio)];
     if (tipo === 'none') return fechas;
-
     const limite = new Date(inicio);
-    limite.setDate(limite.getDate() + 30); // Generar para 1 mes útil
+    limite.setDate(limite.getDate() + 30);
     const actual = new Date(inicio);
-
     while (actual < limite) {
       actual.setDate(actual.getDate() + 1);
       const dia = actual.getDay();
