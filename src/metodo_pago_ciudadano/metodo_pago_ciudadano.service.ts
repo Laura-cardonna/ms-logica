@@ -1,9 +1,11 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm'; 
 import { MetodoPagoCiudadano } from './entities/metodo_pago_ciudadano.entity';
+import { Historial } from '../historial/entities/historial.entity';
 import { CreateMetodoPagoCiudadanoDto } from './dto/create-metodo_pago_ciudadano.dto';
 import { UpdateMetodoPagoCiudadanoDto } from './dto/update-metodo_pago_ciudadano.dto';
+
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -11,6 +13,7 @@ export class MetodoPagoCiudadanoService {
   constructor(
     @InjectRepository(MetodoPagoCiudadano)
     private readonly tarjetaRepository: Repository<MetodoPagoCiudadano>,
+    private readonly dataSource: DataSource,
   ) {}
 
   // ==========================================
