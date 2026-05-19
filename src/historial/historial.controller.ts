@@ -17,13 +17,26 @@ export class HistorialController {
     return this.historialService.findAll();
   }
 
+  /**
+   * HU-005: Obtiene los paraderos validados por un ciudadano para armar la ruta
+   * GET /historial/recorrido/{ciudadanoId}
+   * @param ciudadanoId ID del ciudadano
+   */
+  @Get('recorrido/:ciudadanoId')
+  findValidatedStopsByCitizen(@Param('ciudadanoId') ciudadanoId: string) {
+    return this.historialService.findValidatedStopsByCitizen(ciudadanoId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.historialService.findOne(+id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateHistorialDto: UpdateHistorialDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateHistorialDto: UpdateHistorialDto,
+  ) {
     return this.historialService.update(+id, updateHistorialDto);
   }
 
@@ -32,3 +45,4 @@ export class HistorialController {
     return this.historialService.remove(+id);
   }
 }
+
