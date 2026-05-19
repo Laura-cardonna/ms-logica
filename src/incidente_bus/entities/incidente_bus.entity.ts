@@ -20,9 +20,9 @@ export class IncidenteBus {
 
   @Column({
     type: 'enum',
-    enum: ['mecnico', 'accidente', 'retraso', 'otro'], // Normalizado sin acentos para evitar líos en DB
+    enum: ['mecanico', 'accidente', 'retraso', 'otro'], // Normalizado sin acentos para evitar líos en DB
   })
-  tipo?: 'mecnico' | 'accidente' | 'retraso' | 'otro';
+  tipo?: 'mecanico' | 'accidente' | 'retraso' | 'otro';
 
   @Column({
     type: 'enum',

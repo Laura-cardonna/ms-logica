@@ -1,11 +1,20 @@
-import { IsEnum, IsNotEmpty, IsString, IsNumber, IsArray, IsOptional, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsArray,
+  IsOptional,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateIncidenteBusDto {
-  @IsEnum(['mecnico', 'accidente', 'retraso', 'otro'], {
-    message: 'El tipo de incidente debe ser mecnico, accidente, retraso u otro',
+  @IsEnum(['mecanico', 'accidente', 'retraso', 'otro'], {
+    message:
+      'El tipo de incidente debe ser mecanico, accidente, retraso u otro',
   })
   @IsNotEmpty()
-  tipo?: 'mecnico' | 'accidente' | 'retraso' | 'otro';
+  tipo?: 'mecanico' | 'accidente' | 'retraso' | 'otro';
 
   @IsEnum(['bajo', 'medio', 'alto', 'critico'], {
     message: 'La gravedad debe ser bajo, medio, alto o critico',
@@ -15,7 +24,9 @@ export class CreateIncidenteBusDto {
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(1000, { message: 'La descripción no puede superar los 1000 caracteres' })
+  @MaxLength(1000, {
+    message: 'La descripción no puede superar los 1000 caracteres',
+  })
   descripcion?: string;
 
   @IsNumber()
