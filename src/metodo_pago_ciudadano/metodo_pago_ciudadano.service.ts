@@ -20,6 +20,13 @@ export class MetodoPagoCiudadanoService {
   // NUEVOS MÉTODOS: HU-ENTR-2-013 (ePayco)
   // ==========================================
 
+  async findByCiudadano(ciudadanoId: string) {
+    return this.tarjetaRepository.find({
+      where: { ciudadano: { id: ciudadanoId }, estado: 'activo' },
+      relations: ['metodoPago']
+    });
+  }
+
   async generarReferenciaPago(ciudadanoId: string, tarjetaId: number, monto: number) {
     const tarjeta = await this.tarjetaRepository.findOne({ 
       where: { id: tarjetaId },

@@ -12,6 +12,12 @@ export class MetodoPagoCiudadanoController {
   // NUEVOS ENDPOINTS: HU-ENTR-2-013 (ePayco)
   // ==========================================
 
+  @UseGuards(JwtAuthGuard)
+  @Get('mis-tarjetas')
+  findMisTarjetas(@Req() req: any) {
+    return this.metodoPagoCiudadanoService.findByCiudadano(req.user.id);
+  }
+
   @UseGuards(JwtAuthGuard) 
   @Post('iniciar-recarga')
   iniciarRecarga(@Req() req: any, @Body() body: { tarjetaId: number, monto: number }) {
