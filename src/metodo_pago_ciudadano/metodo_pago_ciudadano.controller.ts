@@ -3,6 +3,7 @@ import { MetodoPagoCiudadanoService } from './metodo_pago_ciudadano.service';
 import { CreateMetodoPagoCiudadanoDto } from './dto/create-metodo_pago_ciudadano.dto';
 import { UpdateMetodoPagoCiudadanoDto } from './dto/update-metodo_pago_ciudadano.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard'; // Ajusta la ruta si es necesario
+import { PagoDirectoDto } from './dto/pago-directo.dto';
 
 @Controller('metodo-pago-ciudadano')
 export class MetodoPagoCiudadanoController {
@@ -27,6 +28,12 @@ export class MetodoPagoCiudadanoController {
       body.tarjetaId, 
       body.monto
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('pagar-directo')
+  async pagarDirecto(@Req() req: any, @Body() body: PagoDirectoDto) {
+    return this.metodoPagoCiudadanoService.procesarPagoDirecto(req.user.id, body);
   }
 
   @Post('epayco-webhook')

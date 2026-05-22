@@ -13,6 +13,7 @@ import { Boleto } from './entities/boleto.entity';
 import { Ciudadano } from 'src/ciudadano/entities/ciudadano.entity';
 import { Programacion } from 'src/programacion/entities/programacion.entity';
 import { MetodoPagoCiudadano } from 'src/metodo_pago_ciudadano/entities/metodo_pago_ciudadano.entity';
+import { MetodoPago } from 'src/metodo_pago/entities/metodo_pago.entity';
 import { Validacion } from 'src/validacion/entities/validacion.entity';
 import { RutaParadero } from 'src/ruta_paradero/entities/ruta_paradero.entity';
 import { Turno } from 'src/turno/entities/turno.entity';
@@ -307,11 +308,55 @@ export class BoletoService {
 
     const realNumericId = ciudadano ? (ciudadano as any).numericId || ciudadano.id : 1;
 
-    const tarjetasEncontradas = await this.metodoPagoCiudadanoRepository
-      .createQueryBuilder('tarjeta')
-      .where('tarjeta.ciudadano_id = :numericId', { numericId: realNumericId })
-      .andWhere('tarjeta.estado = :estado', { estado: 'activo' })
-      .getMany();
+    let tarjetasEncontradas = await this.metodoPagoCiudadanoRepository.find({
+      where: {
+        ciudadano: { numericId: realNumericId },
+        estado: 'activo',
+      },
+      relations: ['metodoPago'],
+    });
+
+    if (tarjetasEncontradas.length === 0 && ciudadano) {
+      // Intentar buscar un MetodoPago base
+      let metodoPago = await this.dataSource.getRepository(MetodoPago).findOne({
+        where: { nombre: 'Tarjeta de Débito' },
+      });
+      if (!metodoPago) {
+        metodoPago = await this.dataSource.getRepository(MetodoPago).findOne({
+          where: {},
+        });
+      }
+
+      const cleanName = (ciudadano.nombre || 'CITY')
+        .replace(/[^a-zA-Z]/g, '')
+        .substring(0, 5)
+        .toUpperCase();
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const cardId = `TARJ-${cleanName}-${randomSuffix}`;
+
+      const nuevaTarjeta = this.metodoPagoCiudadanoRepository.create({
+        identificadorInstrumento: cardId,
+        saldo: 50000,
+        estado: 'activo',
+        fechaRecarga: new Date(),
+        ciudadano: ciudadano,
+        metodoPago: metodoPago || undefined,
+      });
+
+      const tarjetaGuardada = await this.metodoPagoCiudadanoRepository.save(nuevaTarjeta);
+      
+      // Volver a consultar para asegurar que las relaciones (metodoPago) estén cargadas correctamente
+      const tarjetaCargada = await this.metodoPagoCiudadanoRepository.findOne({
+        where: { id: tarjetaGuardada.id },
+        relations: ['metodoPago'],
+      });
+
+      if (tarjetaCargada) {
+        tarjetasEncontradas = [tarjetaCargada];
+      } else {
+        tarjetasEncontradas = [tarjetaGuardada];
+      }
+    }
 
     return tarjetasEncontradas;
   }
