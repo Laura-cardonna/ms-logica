@@ -14,7 +14,7 @@ export async function seedCiudadanos(dataSource: DataSource) {
 
   const ciudadanos = [
     {
-      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479', // Tu UUID del token va aquí
       nombre: 'Maria Perez',
       cedula: '12345',
       telefono: '3001234567',
@@ -43,12 +43,16 @@ export async function seedCiudadanos(dataSource: DataSource) {
   ];
 
   for (const c of ciudadanos) {
+    // Como tu "id" (Token UUID) es único, es mucho mejor validar si ya existe por el ID del token
     const existing = await ciudadanoRepository.findOne({
-      where: { cedula: c.cedula },
+      where: { id: c.id },
     });
+    
     if (!existing) {
+      // TypeORM detectará que 'numericId' no viene en el objeto y dejará que MySQL genere el 1, 2, 3 automáticamente.
       await ciudadanoRepository.save(c);
     }
   }
+  
   console.log('✓ Ciudadanos mínimos para pruebas creados');
 }
