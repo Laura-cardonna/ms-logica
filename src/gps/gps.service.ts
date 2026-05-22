@@ -1,26 +1,73 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+
 import { CreateGpDto } from './dto/create-gp.dto';
 import { UpdateGpDto } from './dto/update-gp.dto';
 
+import { Gps } from './entities/gps.entity';
+
 @Injectable()
 export class GpsService {
-  create(createGpDto: CreateGpDto) {
-    return 'This action adds a new gp';
+  constructor(
+    @InjectRepository(Gps)
+
+    private readonly gpsRepository: Repository<Gps>,
+  ) {}
+
+  // CREATE
+  async create(createGpDto: CreateGpDto): Promise<Gps> {
+    const gps = this.gpsRepository.create(createGpDto);
+
+    return await this.gpsRepository.save(gps);
   }
 
-  findAll() {
-    return `This action returns all gps`;
+  // FIND ALL
+  async findAll(): Promise<Gps[]> {
+    return await this.gpsRepository.find({
+      relations: ['bus'],
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} gp`;
+  // FIND ONE
+  async findOne(id: number): Promise<Gps> {
+    const gps = await this.gpsRepository.findOne({
+      where: { id },
+      relations: ['bus'],
+    });
+
+    if (!gps) {
+      throw new NotFoundException(
+        `GPS con ID ${id} no encontrado`,
+      );
+    }
+
+    return gps;
   }
 
-  update(id: number, updateGpDto: UpdateGpDto) {
-    return `This action updates a #${id} gp`;
+  // UPDATE
+  async update(
+    id: number,
+    updateGpDto: UpdateGpDto,
+  ): Promise<Gps> {
+    const gps = await this.gpsRepository.preload({
+      id,
+      ...updateGpDto,
+    });
+
+    if (!gps) {
+      throw new NotFoundException(
+        `GPS con ID ${id} no encontrado`,
+      );
+    }
+
+    return await this.gpsRepository.save(gps);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} gp`;
+  // DELETE
+  async remove(id: number): Promise<void> {
+    const gps = await this.findOne(id);
+
+    await this.gpsRepository.remove(gps);
   }
 }
