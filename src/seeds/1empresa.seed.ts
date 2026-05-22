@@ -6,7 +6,7 @@ export async function seedEmpresas(dataSource: DataSource) {
 
   const empresas = [
     {
-      nombre: 'Transportes Rápido',
+      nombre: 'KALA', // Ahora la empresa con id = 1 será KALA
       nit: '123456789-0',
     },
     {

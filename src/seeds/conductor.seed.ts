@@ -41,6 +41,13 @@ export async function seedConductores(dataSource: DataSource) {
       licencia: 'LIC-006-2024',
       telefono: '3056789012',
     },
+    // 👇 Tu conductora Laura perfectamente integrada con sus datos
+    {
+      id: 'aaee28e7-2d84-493f-ae0c-ae8ef996142d',
+      nombre: 'LAURA CARDONA GOMEZ',
+      licencia: 'LIC-007-2026',
+      telefono: '3107654321',
+    },
   ];
 
   for (const conductor of conductores) {

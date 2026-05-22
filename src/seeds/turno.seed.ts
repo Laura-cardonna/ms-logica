@@ -79,7 +79,7 @@ export async function seedTurnos(dataSource: DataSource) {
         14,
         30,
       ),
-      estado: 'en_curso',
+      estado: 'completado', // Cambiado de 'en_curso' a 'completado'
       conductor: conductores[2],
       bus: buses[2],
     },
@@ -99,7 +99,7 @@ export async function seedTurnos(dataSource: DataSource) {
         13,
         30,
       ),
-      estado: 'programado',
+      estado: 'completado', // Cambiado de 'programado' a 'completado'
       conductor: conductores[3],
       bus: buses[3],
     },
@@ -119,29 +119,9 @@ export async function seedTurnos(dataSource: DataSource) {
         22,
         0,
       ),
-      estado: 'programado',
+      estado: 'completado', // Cambiado de 'programado' a 'completado'
       conductor: conductores[4],
       bus: buses[4],
-    },
-    {
-      fecha: tomorrow,
-      horaInicio: new Date(
-        tomorrow.getFullYear(),
-        tomorrow.getMonth(),
-        tomorrow.getDate(),
-        6,
-        0,
-      ),
-      horaFin: new Date(
-        tomorrow.getFullYear(),
-        tomorrow.getMonth(),
-        tomorrow.getDate(),
-        14,
-        0,
-      ),
-      estado: 'programado',
-      conductor: conductores[5],
-      bus: buses[5],
     },
   ];
 
@@ -157,5 +137,5 @@ export async function seedTurnos(dataSource: DataSource) {
     }
   }
 
-  console.log('✓ Turnos seeded');
+  console.log('✓ 5 Turnos completados seeded');
 }
