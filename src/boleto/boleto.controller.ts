@@ -99,6 +99,11 @@ export class BoletoController {
     return await this.boletoService.finalizarViaje(data);
   }
 
+  @Get(':id/paraderos-descenso')
+  async obtenerParaderosDescenso(@Param('id', ParseIntPipe) id: number) {
+    return this.boletoService.obtenerParaderosDescenso(id);
+  }
+
   @Get(':id/recorrido')
   async verRecorridoViaje(
     @Param('id', ParseIntPipe) id: number,

@@ -97,7 +97,9 @@ export class BoletoService {
     });
 
     if (!tarjeta) {
-      throw new NotFoundException('La tarjeta seleccionada no existe en el sistema.');
+      throw new NotFoundException(
+        'La tarjeta seleccionada no existe en el sistema.',
+      );
     }
 
     if (tarjeta.ciudadano?.id !== ciudadano.id) {
@@ -105,7 +107,9 @@ export class BoletoService {
     }
 
     if (tarjeta.estado !== 'activo') {
-      throw new BadRequestException('La tarjeta seleccionada se encuentra inactiva.');
+      throw new BadRequestException(
+        'La tarjeta seleccionada se encuentra inactiva.',
+      );
     }
 
     const programacion = await this.programacionRepository.findOne({
@@ -114,17 +118,22 @@ export class BoletoService {
     });
 
     if (!programacion) {
-      throw new NotFoundException('No hay una programación en ruta activa para este autobús.');
+      throw new NotFoundException(
+        'No hay una programación en ruta activa para este autobús.',
+      );
     }
 
     const capacidad = Number(programacion.bus?.capacidadMaxima ?? 0);
-    const ocupados = (programacion.boletos ?? []).filter((b) => b.estado === 'activo').length;
+    const ocupados = (programacion.boletos ?? []).filter(
+      (b) => b.estado === 'activo',
+    ).length;
 
     if (ocupados >= capacidad) {
       try {
         const datosValidacion: any = {
           tipo: 'abordaje',
-          motivo: 'Abordaje rechazado: El bus ha alcanzado su capacidad máxima.',
+          motivo:
+            'Abordaje rechazado: El bus ha alcanzado su capacidad máxima.',
         };
         if (data.paraderoAbordaje_id) {
           datosValidacion.paradero = { id: data.paraderoAbordaje_id };
@@ -133,14 +142,18 @@ export class BoletoService {
       } catch (auditError) {
         console.error('⚠️ Error guardando auditoría:', auditError);
       }
-      throw new ConflictException('Abordaje rechazado: El bus ha alcanzado su capacidad máxima.');
+      throw new ConflictException(
+        'Abordaje rechazado: El bus ha alcanzado su capacidad máxima.',
+      );
     }
 
     const tarifa = Number(programacion.ruta?.tarifa ?? 0);
     const saldoActual = Number(tarjeta.saldo ?? 0);
 
     if (saldoActual < tarifa) {
-      throw new BadRequestException(`Saldo insuficiente. Tarifa: $${tarifa}. Saldo: $${saldoActual}`);
+      throw new BadRequestException(
+        `Saldo insuficiente. Tarifa: $${tarifa}. Saldo: $${saldoActual}`,
+      );
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -168,16 +181,23 @@ export class BoletoService {
         programacion: programacion,
         metodoPagoCiudadano: tarjeta,
         ruta: programacion.ruta,
-        paraderoAbordaje: data.paraderoAbordaje_id ? { id: data.paraderoAbordaje_id } : null,
+        paraderoAbordaje: data.paraderoAbordaje_id
+          ? { id: data.paraderoAbordaje_id }
+          : null,
       } as any);
 
-      const boletoGuardado = await queryRunner.manager.save(Boleto, nuevoBoleto);
+      const boletoGuardado = await queryRunner.manager.save(
+        Boleto,
+        nuevoBoleto,
+      );
 
       const nuevaValidacion = queryRunner.manager.create(Validacion, {
         tipo: 'abordaje',
         motivo: 'Abordaje exitoso',
         boleto: boletoGuardado,
-        paradero: data.paraderoAbordaje_id ? { id: data.paraderoAbordaje_id } : null,
+        paradero: data.paraderoAbordaje_id
+          ? { id: data.paraderoAbordaje_id }
+          : null,
       } as any);
 
       await queryRunner.manager.save(Validacion, nuevaValidacion);
@@ -234,7 +254,10 @@ export class BoletoService {
   /**
    * FINALIZAR VIAJE (DESCENSO)
    */
-  async finalizarViaje(data: { boleto_id: number; paraderoDescenso_id: number }) {
+  async finalizarViaje(data: {
+    boleto_id: number;
+    paraderoDescenso_id: number;
+  }) {
     const boleto = await this.boletoRepository.findOne({
       where: { id: data.boleto_id },
       relations: this.boletoRelations,
@@ -245,7 +268,9 @@ export class BoletoService {
     }
 
     if (boleto.estado === 'completado') {
-      throw new BadRequestException('Este viaje ya había sido completado previamente.');
+      throw new BadRequestException(
+        'Este viaje ya había sido completado previamente.',
+      );
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -262,7 +287,9 @@ export class BoletoService {
         tipo: 'descenso',
         motivo: 'Viaje completado - Gracias por usar nuestro servicio',
         boleto: boletoActualizado,
-        paradero: data.paraderoDescenso_id ? { id: data.paraderoDescenso_id } : null,
+        paradero: data.paraderoDescenso_id
+          ? { id: data.paraderoDescenso_id }
+          : null,
       } as any);
 
       await queryRunner.manager.save(Validacion, nuevaValidacionDescenso);
@@ -280,6 +307,56 @@ export class BoletoService {
     }
   }
 
+
+async obtenerParaderosDescenso(boletoId: number) {
+  const boleto = await this.boletoRepository.findOne({
+    where: { id: boletoId },
+    relations: ['ruta', 'programacion', 'programacion.ruta'],
+  });
+
+  if (!boleto) throw new NotFoundException('El viaje no existe');
+
+  const rutaId = boleto.programacion?.ruta?.id || boleto.ruta?.id;
+  if (!rutaId) return [];
+
+  // 1. Obtener paradero de abordaje de la validación
+  const validacionAbordaje = await this.validacionRepository.findOne({
+    where: { boleto: { id: boletoId }, tipo: 'abordaje' },
+    relations: ['paradero'],
+  });
+  const paraderoAbordajeId = validacionAbordaje?.paradero?.id;
+
+  // 2. CONSULTA SQL PURA (Para descartar errores de TypeORM)
+  // Nota: Asegúrate que los nombres de las tablas sean correctos (ruta_paradero y paraderos)
+  const resultados: any[] = await this.dataSource.query(`
+    SELECT 
+      p.id, 
+      p.nombre, 
+      p.descripcion, 
+      p.latitud, 
+      p.longitud, 
+      rp.orden_secuencial as ordenSecuencial
+    FROM ruta_paradero rp
+    INNER JOIN paraderos p ON rp.paradero_id = p.id
+    WHERE rp.ruta_id = ?
+    ORDER BY rp.orden_secuencial ASC
+  `, [rutaId]);
+
+  console.log(`SQL Raw - Buscando Ruta ID ${rutaId}. Encontrados: ${resultados.length}`);
+
+  // 3. Filtrar el paradero de abordaje
+  return resultados
+    .filter((p) => p.id !== paraderoAbordajeId)
+    .map((p) => ({
+      id: p.id,
+      nombre: p.nombre || 'Sin nombre',
+      descripcion: p.descripcion || '',
+      latitud: p.latitud || 0,
+      longitud: p.longitud || 0,
+      ordenSecuencial: p.ordenSecuencial || 0,
+    }));
+}
+
   async remove(id: number) {
     const boleto = await this.boletoRepository.findOne({ where: { id } });
     if (!boleto) throw new NotFoundException('Boleto no encontrado');
@@ -289,7 +366,9 @@ export class BoletoService {
     await queryRunner.startTransaction();
 
     try {
-      await queryRunner.query('DELETE FROM validaciones WHERE boleto_id = ?', [id]);
+      await queryRunner.query('DELETE FROM validaciones WHERE boleto_id = ?', [
+        id,
+      ]);
       await queryRunner.manager.delete(Boleto, id);
       await queryRunner.commitTransaction();
       return { mensaje: 'Boleto eliminado correctamente' };
@@ -306,7 +385,9 @@ export class BoletoService {
       where: { id: ciudadanoId },
     });
 
-    const realNumericId = ciudadano ? (ciudadano as any).numericId || ciudadano.id : 1;
+    const realNumericId = ciudadano
+      ? (ciudadano as any).numericId || ciudadano.id
+      : 1;
 
     let tarjetasEncontradas = await this.metodoPagoCiudadanoRepository.find({
       where: {
@@ -343,8 +424,9 @@ export class BoletoService {
         metodoPago: metodoPago || undefined,
       });
 
-      const tarjetaGuardada = await this.metodoPagoCiudadanoRepository.save(nuevaTarjeta);
-      
+      const tarjetaGuardada =
+        await this.metodoPagoCiudadanoRepository.save(nuevaTarjeta);
+
       // Volver a consultar para asegurar que las relaciones (metodoPago) estén cargadas correctamente
       const tarjetaCargada = await this.metodoPagoCiudadanoRepository.findOne({
         where: { id: tarjetaGuardada.id },
@@ -364,7 +446,12 @@ export class BoletoService {
   async obtenerRecorrido(boletoId: number) {
     const boleto = await this.boletoRepository.findOne({
       where: { id: boletoId },
-      relations: ['ruta', 'programacion', 'programacion.bus', 'programacion.ruta'],
+      relations: [
+        'ruta',
+        'programacion',
+        'programacion.bus',
+        'programacion.ruta',
+      ],
     });
 
     if (!boleto) {
@@ -395,7 +482,8 @@ export class BoletoService {
         },
         relations: ['conductor'],
       });
-      if (turno?.conductor?.nombre) conductorNombre = String(turno.conductor.nombre);
+      if (turno?.conductor?.nombre)
+        conductorNombre = String(turno.conductor.nombre);
     }
 
     const coordenadasMapa = rutaParaderos.map((rp) => ({
@@ -422,7 +510,9 @@ export class BoletoService {
       const primeraValidacion = validaciones[0];
       const ultimaValidacion = validaciones[validaciones.length - 1];
       tiempoTotalMinutos = Math.round(
-        (ultimaValidacion.horaExacta.getTime() - primeraValidacion.horaExacta.getTime()) / 60000
+        (ultimaValidacion.horaExacta.getTime() -
+          primeraValidacion.horaExacta.getTime()) /
+          60000,
       );
     }
 
