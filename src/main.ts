@@ -21,6 +21,14 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
+  app.enableCors({
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:4200',
+  ],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-gps-api-key'],
+});
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -35,3 +43,4 @@ async function bootstrap() {
   console.log(`✅ Application running on port ${process.env.PORT ?? 3000}`);
 }
 bootstrap();
+

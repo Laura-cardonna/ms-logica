@@ -1,9 +1,5 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateGpDto } from './create-gp.dto';
-import { IsNumber, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import { IsNumber, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
-export class UpdateGpDto extends PartialType(CreateGpDto) {}
 
 export class UpdateUbicacionDto {
   @ApiProperty({ example: 4.7110 })
@@ -20,9 +16,4 @@ export class UpdateUbicacionDto {
   @IsNumber()
   @IsOptional()
   velocidad?: number;
-
-  @ApiProperty({ example: true })
-  @IsBoolean()
-  @IsOptional()
-  enRuta?: boolean;
 }

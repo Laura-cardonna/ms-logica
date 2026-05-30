@@ -31,6 +31,7 @@ import { DestinatarioPersonaModule } from './destinatario_persona/destinatario_p
 import { DestinatarioGrupoModule } from './destinatario_grupo/destinatario_grupo.module';
 import { GrupoPersonaModule } from './grupo_persona/grupo_persona.module';
 import { ReportesModule } from './reportes/reportes.module';
+import { MonitoreoModule } from './monitoreo/monitoreo.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { ReportesModule } from './reportes/reportes.module';
     DestinatarioGrupoModule,
     GrupoPersonaModule,
     ReportesModule,
+    MonitoreoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

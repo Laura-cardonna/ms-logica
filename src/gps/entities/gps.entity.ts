@@ -27,4 +27,10 @@ export class Gps {
   @OneToOne(() => Bus, (bus) => bus.gps)
   @JoinColumn({ name: 'bus_id' })
   bus?: Bus;
+
+  @Column('boolean', { default: false })
+  enRuta: boolean;
+
+  @Column('varchar', { length: 20, nullable: true })
+  velocidad: string; // km/h como string para evitar problemas de tipo
 }
