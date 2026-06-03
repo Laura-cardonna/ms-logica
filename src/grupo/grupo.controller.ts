@@ -20,4 +20,18 @@ export class GrupoController {
   findByPersona(@Param('id') id: string) { // Asegúrate que aquí diga string
     return this.grupoService.findByPersona(id); // <--- QUITA EL + AQUÍ
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('publicos/disponibles')
+  findPublicos(@Req() req: any) {
+    // Usamos el ID del token para saber cuáles NO mostrarle
+    return this.grupoService.findPublicosDisponibles(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/unirse')
+  unirse(@Param('id') grupoId: number, @Req() req: any) {
+    return this.grupoService.unirseAGrupo(grupoId, req.user.id);
+  }
+  
 }

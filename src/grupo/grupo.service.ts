@@ -120,16 +120,101 @@ export class GrupoService {
     };
   }
 
-  /**
-   * Obtiene todos los grupos donde participa una persona (como admin o miembro)
+
+/**
+   * Obtiene todos los grupos donde participa una persona con el conteo de miembros
    */
-  async findByPersona(personaId: string) {
+/**
+   * Obtiene todos los grupos donde participa una persona con el conteo de miembros y fecha de unión
+   */
+async findByPersona(personaId: string) {
     const membresias = await this.grupoPersonaRepository.find({
       where: { persona: { id: String(personaId) } },
       relations: ['grupo'],
     });
 
-    // Filtramos para devolver solo los objetos Grupo
-    return membresias.map(m => m.grupo);
+    const gruposIds = membresias
+      .map(m => m.grupo?.id)
+      .filter((id): id is number => id !== undefined);
+
+    if (gruposIds.length === 0) return [];
+
+    const grupos = await this.grupoRepository.createQueryBuilder('grupo')
+      .loadRelationCountAndMap('grupo.cantidadMiembros', 'grupo.miembros')
+      .where('grupo.id IN (:...ids)', { ids: gruposIds })
+      .getMany();
+
+    // Inyectamos la fechaUnion real de la tabla intermedia
+    return grupos.map(grupo => {
+      const membresia = membresias.find(m => m.grupo?.id === grupo.id);
+      return {
+        ...grupo,
+        fechaUnion: membresia ? membresia.fechaUnion : null
+      };
+    });
   }
+
+ /**
+   * Obtiene grupos públicos en los que el usuario NO participa todavía
+   */
+async findPublicosDisponibles(personaId: string) {
+  const misMembresias = await this.grupoPersonaRepository.find({
+    where: { persona: { id: personaId } },
+    relations: ['grupo'],
+  });
+
+  const misGruposIds = misMembresias
+    .map(m => m.grupo?.id)
+    .filter((id): id is number => id !== undefined);
+
+  // Seleccionamos el grupo y contamos sus relaciones en grupo_persona
+  const query = this.grupoRepository.createQueryBuilder('grupo')
+    .loadRelationCountAndMap('grupo.cantidadMiembros', 'grupo.miembros') // <--- Esto añade el conteo
+    .where('grupo.esPublico = :esPublico', { esPublico: true });
+
+  if (misGruposIds.length > 0) {
+    query.andWhere('grupo.id NOT IN (:...ids)', { ids: misGruposIds });
+  }
+
+  return await query.getMany();
+}
+
+  /**
+   * Permite que una persona se una a un grupo público
+   */
+  async unirseAGrupo(grupoId: number, personaId: string) {
+    // 1. Verificar si el grupo existe
+    const grupo = await this.grupoRepository.findOne({ where: { id: grupoId } });
+    if (!grupo) throw new BadRequestException('El grupo no existe');
+    if (!grupo.esPublico) throw new BadRequestException('Este grupo es privado');
+
+    // 2. Verificar si la persona existe (Soluciona error TS2345 y TS2769)
+    const persona = await this.personaRepository.findOne({ where: { id: personaId } });
+    if (!persona) throw new BadRequestException('La persona no existe');
+
+    // 3. Verificar si ya es miembro
+    const existente = await this.grupoPersonaRepository.findOne({
+      where: { grupo: { id: grupoId }, persona: { id: personaId } }
+    });
+    if (existente) throw new BadRequestException('Ya eres miembro de este grupo');
+
+    // 4. Crear la membresía con objetos validados
+    const nuevaMembresia = this.grupoPersonaRepository.create({
+      grupo: grupo,
+      persona: persona,
+      rol: 'miembro'
+    });
+
+    await this.grupoPersonaRepository.save(nuevaMembresia);
+
+    // 5. Notificar bienvenida
+    await this.notificacionService.crearNotificacion(
+      persona,
+      '¡Bienvenido!',
+      `Ahora eres miembro de la comunidad "${grupo.nombre}".`
+    );
+
+    return { success: true, message: 'Te has unido al grupo con éxito' };
+  }
+
 }

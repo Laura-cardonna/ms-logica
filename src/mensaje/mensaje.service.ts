@@ -1,26 +1,56 @@
 import { Injectable } from '@nestjs/common';
-import { CreateMensajeDto } from './dto/create-mensaje.dto';
-import { UpdateMensajeDto } from './dto/update-mensaje.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Mensaje } from './entities/mensaje.entity';
+import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
+import { Persona } from 'src/persona/entities/persona.entity';
+import { Grupo } from 'src/grupo/entities/grupo.entity';
 
 @Injectable()
 export class MensajeService {
-  create(createMensajeDto: CreateMensajeDto) {
-    return 'This action adds a new mensaje';
+  constructor(
+    @InjectRepository(Mensaje)
+    private readonly mensajeRepository: Repository<Mensaje>,
+
+    @InjectRepository(DestinatarioGrupo)
+    private readonly destGrupoRepository: Repository<DestinatarioGrupo>,
+  ) {}
+
+  // Enviar mensaje a un grupo
+  async enviarMensajeAGrupo(emisorId: string, grupoId: number, contenido: string) {
+    // 1. Creamos el mensaje base
+    const nuevoMensaje = this.mensajeRepository.create({
+      contenido,
+      emisor: { id: emisorId } as Persona,
+    });
+
+    const mensajeGuardado = await this.mensajeRepository.save(nuevoMensaje);
+
+    // 2. Creamos la relación con el grupo
+    const destinatario = this.destGrupoRepository.create({
+      mensaje: mensajeGuardado,
+      grupo: { id: grupoId } as Grupo,
+    });
+
+    await this.destGrupoRepository.save(destinatario);
+
+    return { ...mensajeGuardado, grupoId };
   }
 
-  findAll() {
-    return `This action returns all mensaje`;
-  }
+  // Obtener historial del chat de un grupo
+  async obtenerMensajesPorGrupo(grupoId: number) {
+    const relaciones = await this.destGrupoRepository.find({
+      where: { grupo: { id: grupoId } },
+      relations: ['mensaje', 'mensaje.emisor'],
+      order: { mensaje: { fechaEnvio: 'ASC' } }, // Orden cronológico
+    });
 
-  findOne(id: number) {
-    return `This action returns a #${id} mensaje`;
-  }
-
-  update(id: number, updateMensajeDto: UpdateMensajeDto) {
-    return `This action updates a #${id} mensaje`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} mensaje`;
+    return relaciones.map(rel => ({
+      id: rel.mensaje?.id,
+      contenido: rel.mensaje?.contenido,
+      fechaEnvio: rel.mensaje?.fechaEnvio,
+      emisorNombre: rel.mensaje?.emisor?.nombre,
+      emisorId: rel.mensaje?.emisor?.id,
+    }));
   }
 }
