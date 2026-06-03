@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { GrupoPersona } from '../persona/entities/grupo_persona.entity';
+import { GrupoPersona } from '../grupo_persona/entities/grupo_persona.entity';
 import { Grupo } from '../grupo/entities/grupo.entity';
 import { Persona } from '../persona/entities/persona.entity';
 

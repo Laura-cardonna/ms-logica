@@ -4,13 +4,16 @@ import { Repository } from 'typeorm';
 import { CreateCiudadanoDto } from './dto/create-ciudadano.dto';
 import { UpdateCiudadanoDto } from './dto/update-ciudadano.dto';
 import { Ciudadano } from './entities/ciudadano.entity';
-
+import { Persona } from 'src/persona/entities/persona.entity'; 
 @Injectable()
 export class CiudadanoService {
   constructor(
     @InjectRepository(Ciudadano)
     private readonly ciudadanoRepository: Repository<Ciudadano>,
-  ) {}
+    // AGREGA ESTO:
+    @InjectRepository(Persona)
+    private readonly personaRepository: Repository<Persona>,
+  ) { }
 
   create(createCiudadanoDto: CreateCiudadanoDto) {
     // Nota: Aquí podrías usar el repository para crear si lo necesitas
@@ -43,7 +46,7 @@ export class CiudadanoService {
    * Recibe: { id, email, name, ...otrosDatos }
    * El numericId se genera automáticamente en la BD (autoincrement).
    */
-  async findOrCreateByEmail(payload: any) {
+async findOrCreateByEmail(payload: any) {
     if (!payload.email) {
       throw new BadRequestException('Payload must contain email');
     }
@@ -59,11 +62,24 @@ export class CiudadanoService {
         );
       }
 
+      // --- SOLUCIÓN: Asegurar que exista la Persona primero ---
+      let persona = await this.personaRepository.findOne({ where: { id: payload.id } });
+      
+      if (!persona) {
+        persona = this.personaRepository.create({
+          id: payload.id,
+          nombre: payload.name,
+          email: payload.email,
+        });
+        await this.personaRepository.save(persona);
+      }
+
+      // Ahora que la persona existe en MySQL, creamos el ciudadano
       ciudadano = this.ciudadanoRepository.create({
         id: payload.id,
         email: payload.email,
         nombre: payload.name,
-        // numericId se genera automáticamente en la BD (no se asigna aquí gracias al decorador @Generated)
+        persona: persona, // Vinculamos el objeto completo
       });
 
       ciudadano = await this.ciudadanoRepository.save(ciudadano);
@@ -74,4 +90,5 @@ export class CiudadanoService {
       ciudadano,
     };
   }
+
 }

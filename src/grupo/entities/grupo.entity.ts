@@ -13,6 +13,12 @@ export class Grupo {
     @Column({ type: 'text', nullable: true })
     descripcion?: string;
 
+    @Column({ default: true }) 
+    esPublico?: boolean;
+
+    @Column({ nullable: true })
+    imagenUrl?: string;
+
     @Column({ name: 'fecha_creacion', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     fechaCreacion?: Date;
 

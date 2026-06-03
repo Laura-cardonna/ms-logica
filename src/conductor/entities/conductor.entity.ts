@@ -1,20 +1,24 @@
-import { Entity, Column, PrimaryColumn, OneToMany } from 'typeorm'; // 👈 Cambiamos PrimaryGeneratedColumn por PrimaryColumn
+import { Entity, Column, PrimaryColumn, OneToMany, OneToOne, JoinColumn } from 'typeorm';
 import { Turno } from 'src/turno/entities/turno.entity';
+import { Persona } from 'src/persona/entities/persona.entity';
 
 @Entity('conductores')
 export class Conductor {
-    // 🚀 AJUSTE: Ahora el ID no es autoincremental, sino que recibe el UUID string del Auth
-    @PrimaryColumn({ type: 'varchar', length: 45 }) 
-    id?: string; // 👈 Cambiado de number a string
+    @PrimaryColumn({ type: 'varchar', length: 100 }) 
+    id?: string; // UUID directo
 
-    @Column()
+    @Column({ nullable: true })
     nombre?: string;
 
-    @Column({ unique: true })
+    @Column({ unique: true, nullable: true })
     licencia?: string;
 
-    @Column()
+    @Column({ nullable: true })
     telefono?: string;
+
+    @OneToOne(() => Persona)
+    @JoinColumn({ name: 'id', referencedColumnName: 'id' })
+    persona?: Persona;
 
     @OneToMany(() => Turno, (turno) => turno.conductor)
     turnos?: Turno[];

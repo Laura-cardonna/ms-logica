@@ -16,6 +16,9 @@ export class GrupoPersona {
     @JoinColumn({ name: 'persona_id' })
     persona?: Persona;
 
+    @Column({ default: 'miembro' }) 
+    rol?: string;
+
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     fechaUnion?: Date;
 }
