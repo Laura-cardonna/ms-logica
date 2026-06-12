@@ -8,6 +8,7 @@ import { NotificacionService } from 'src/notificacion/notificacion.service'; // 
 import { CreateGrupoDto } from './dto/create-grupo.dto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { GrupoMembresiaLog } from './entities/grupo-membresia-log.entity';
 
 @Injectable()
 export class GrupoService {
@@ -125,9 +126,11 @@ export class GrupoService {
    * Obtiene todos los grupos donde participa una persona con el conteo de miembros
    */
 /**
+
+/**
    * Obtiene todos los grupos donde participa una persona con el conteo de miembros y fecha de unión
    */
-async findByPersona(personaId: string) {
+  async findByPersona(personaId: string) {
     const membresias = await this.grupoPersonaRepository.find({
       where: { persona: { id: String(personaId) } },
       relations: ['grupo'],
@@ -144,13 +147,14 @@ async findByPersona(personaId: string) {
       .where('grupo.id IN (:...ids)', { ids: gruposIds })
       .getMany();
 
-    // Inyectamos la fechaUnion real de la tabla intermedia
+    // Inyectamos la fechaUnion real y el rol de la tabla intermedia
     return grupos.map(grupo => {
       const membresia = membresias.find(m => m.grupo?.id === grupo.id);
       return {
         ...grupo,
-        fechaUnion: membresia ? membresia.fechaUnion : null
-      };
+        fechaUnion: membresia ? membresia.fechaUnion : null,
+        rol: membresia?.rol || 'miembro' // 👈 Fallback seguro si no encuentra el rol
+      } as any; // 👈 El "as any" le quita lo estricto a TypeScript para este objeto custom
     });
   }
 
@@ -192,11 +196,14 @@ async findPublicosDisponibles(personaId: string) {
     const persona = await this.personaRepository.findOne({ where: { id: personaId } });
     if (!persona) throw new BadRequestException('La persona no existe');
 
-    // 3. Verificar si ya es miembro
+// 3. Verificar si ya es miembro o está bloqueado
     const existente = await this.grupoPersonaRepository.findOne({
       where: { grupo: { id: grupoId }, persona: { id: personaId } }
     });
-    if (existente) throw new BadRequestException('Ya eres miembro de este grupo');
+    if (existente) {
+      if (existente.rol === 'bloqueado') throw new BadRequestException('Estás bloqueado y no puedes unirte a este grupo');
+      throw new BadRequestException('Ya eres miembro de este grupo');
+    }
 
     // 4. Crear la membresía con objetos validados
     const nuevaMembresia = this.grupoPersonaRepository.create({
@@ -215,6 +222,129 @@ async findPublicosDisponibles(personaId: string) {
     );
 
     return { success: true, message: 'Te has unido al grupo con éxito' };
+  }
+
+  // --------------------------------------------------------
+  // NUEVAS FUNCIONES PARA ADMINISTRACIÓN DE GRUPOS (HU-010)
+  // --------------------------------------------------------
+
+  /**
+   * Helper: Verifica si el usuario que ejecuta la acción es administrador del grupo
+   */
+  private async verificarAdmin(grupoId: number, adminId: string) {
+    const adminEnGrupo = await this.grupoPersonaRepository.findOne({
+      where: { grupo: { id: grupoId }, persona: { id: String(adminId) } }
+    });
+    
+    if (!adminEnGrupo || adminEnGrupo.rol !== 'administrador') {
+      throw new BadRequestException('No tienes permisos de administrador para realizar esta acción');
+    }
+    return adminEnGrupo;
+  }
+
+  /**
+   * Obtiene la lista de miembros de un grupo (con búsqueda opcional)
+   */
+  async obtenerMiembros(grupoId: number, search?: string) {
+    const query = this.grupoPersonaRepository.createQueryBuilder('gp')
+      .leftJoinAndSelect('gp.persona', 'persona')
+      .where('gp.grupo_id = :grupoId', { grupoId })
+      .andWhere('gp.rol != :rolBloqueado', { rolBloqueado: 'bloqueado' }); // No mostramos a los bloqueados
+
+    if (search) {
+      query.andWhere('LOWER(persona.nombre) LIKE LOWER(:search)', { search: `%${search}%` });
+    }
+
+    query.orderBy('gp.fechaUnion', 'DESC');
+    return await query.getMany();
+  }
+
+/**
+   * Promueve un miembro a administrador
+   */
+  async promoverAdmin(grupoId: number, personaId: string, adminEjecutorId: string) {
+    await this.verificarAdmin(grupoId, adminEjecutorId);
+    
+    const membresia = await this.grupoPersonaRepository.findOne({
+      where: { grupo: { id: grupoId }, persona: { id: String(personaId) } },
+      relations: ['persona', 'grupo']
+    });
+
+    if (!membresia) throw new BadRequestException('El usuario no es miembro de este grupo');
+    if (membresia.rol === 'administrador') throw new BadRequestException('El usuario ya es administrador');
+    
+    // Verificaciones para que TypeScript sepa que existen
+    if (!membresia.persona || !membresia.grupo) {
+      throw new BadRequestException('Datos inconsistentes en la membresía');
+    }
+    
+    membresia.rol = 'administrador';
+    await this.grupoPersonaRepository.save(membresia);
+
+    // TODO: Inyectar LogRepository para guardar la acción aquí
+    
+    await this.notificacionService.crearNotificacion(
+      membresia.persona, // Ya validamos que existe, TS no se queja
+      'Ascenso en Comunidad',
+      `Has sido promovido a administrador en el grupo "${membresia.grupo.nombre}".` 
+    );
+
+    return { success: true, message: 'Usuario promovido a administrador exitosamente' };
+  }
+
+  /**
+   * Remueve a un miembro del grupo
+   */
+  async removerMiembro(grupoId: number, personaId: string, adminEjecutorId: string) {
+    await this.verificarAdmin(grupoId, adminEjecutorId);
+
+    const membresia = await this.grupoPersonaRepository.findOne({
+      where: { grupo: { id: grupoId }, persona: { id: String(personaId) } },
+      relations: ['persona', 'grupo']
+    });
+
+    if (!membresia) throw new BadRequestException('El usuario no pertenece al grupo');
+    if (membresia.rol === 'administrador') throw new BadRequestException('No puedes remover a otro administrador directamente');
+
+    const persona = membresia.persona;
+    const grupo = membresia.grupo;
+
+    // Verificaciones para que TypeScript no arroje error
+    if (!persona || !grupo) {
+       throw new BadRequestException('Datos inconsistentes en la membresía');
+    }
+
+    // Eliminamos el registro de la base de datos
+    await this.grupoPersonaRepository.remove(membresia);
+
+    await this.notificacionService.crearNotificacion(
+      persona,
+      'Removido del Grupo',
+      `Has sido removido del grupo "${grupo.nombre}". Ya no recibirás sus mensajes.`
+    );
+
+    return { success: true, message: 'Usuario removido del grupo' };
+  }
+
+  /**
+   * Bloquea a un miembro (no puede volver a unirse)
+   */
+  async bloquearMiembro(grupoId: number, personaId: string, adminEjecutorId: string) {
+    await this.verificarAdmin(grupoId, adminEjecutorId);
+
+    const membresia = await this.grupoPersonaRepository.findOne({
+      where: { grupo: { id: grupoId }, persona: { id: String(personaId) } },
+      relations: ['persona', 'grupo']
+    });
+
+    if (!membresia) throw new BadRequestException('El usuario no pertenece al grupo');
+    if (membresia.rol === 'administrador') throw new BadRequestException('No puedes bloquear a un administrador');
+
+    // Cambiamos el rol a bloqueado en vez de borrarlo
+    membresia.rol = 'bloqueado';
+    await this.grupoPersonaRepository.save(membresia);
+
+    return { success: true, message: 'Usuario bloqueado. No podrá volver a unirse.' };
   }
 
 }
