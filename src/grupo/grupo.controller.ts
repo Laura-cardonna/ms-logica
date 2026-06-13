@@ -67,4 +67,10 @@ export class GrupoController {
     return this.grupoService.obtenerLogsMembresia(Number(grupoId));
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/abandonar')
+  abandonarGrupo(@Param('id') grupoId: number, @Req() req: any) {
+    return this.grupoService.abandonarGrupo(grupoId, req.user.id);
+  }
+
 }

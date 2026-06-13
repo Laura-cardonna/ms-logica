@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Not } from 'typeorm';
 import { Grupo } from './entities/grupo.entity';
 import { GrupoPersona } from 'src/grupo_persona/entities/grupo_persona.entity';
 import { Persona } from 'src/persona/entities/persona.entity';
@@ -152,7 +152,7 @@ export class GrupoService {
 /**
    * Obtiene todos los grupos donde participa una persona con el conteo de miembros y fecha de unión
    */
-  async findByPersona(personaId: string) {
+async findByPersona(personaId: string) {
     const membresias = await this.grupoPersonaRepository.find({
       where: { persona: { id: String(personaId) } },
       relations: ['grupo'],
@@ -175,8 +175,8 @@ export class GrupoService {
       return {
         ...grupo,
         fechaUnion: membresia ? membresia.fechaUnion : null,
-        rol: membresia?.rol || 'miembro' // 👈 Fallback seguro si no encuentra el rol
-      } as any; // 👈 El "as any" le quita lo estricto a TypeScript para este objeto custom
+        rol: membresia ? membresia.rol : 'miembro' // 👈 Garantiza traer 'abandonado', 'bloqueado', 'miembro' o 'administrador'
+      };
     });
   }
 
@@ -184,50 +184,79 @@ export class GrupoService {
    * Obtiene grupos públicos en los que el usuario NO participa todavía
    */
 async findPublicosDisponibles(personaId: string) {
-  const misMembresias = await this.grupoPersonaRepository.find({
-    where: { persona: { id: personaId } },
-    relations: ['grupo'],
-  });
+    // Buscamos solo membresías donde el usuario es miembro activo, admin o bloqueado
+    const misMembresiasActivas = await this.grupoPersonaRepository.find({
+      where: [
+        { persona: { id: personaId }, rol: 'miembro' },
+        { persona: { id: personaId }, rol: 'administrador' },
+        { persona: { id: personaId }, rol: 'bloqueado' }
+      ],
+      relations: ['grupo'],
+    });
 
-  const misGruposIds = misMembresias
-    .map(m => m.grupo?.id)
-    .filter((id): id is number => id !== undefined);
+    const misGruposIds = misMembresiasActivas
+      .map(m => m.grupo?.id)
+      .filter((id): id is number => id !== undefined);
 
-  // Seleccionamos el grupo y contamos sus relaciones en grupo_persona
-  const query = this.grupoRepository.createQueryBuilder('grupo')
-    .loadRelationCountAndMap('grupo.cantidadMiembros', 'grupo.miembros') // <--- Esto añade el conteo
-    .where('grupo.esPublico = :esPublico', { esPublico: true });
+    // Seleccionamos el grupo y contamos sus relaciones en grupo_persona
+    const query = this.grupoRepository.createQueryBuilder('grupo')
+      .loadRelationCountAndMap('grupo.cantidadMiembros', 'grupo.miembros')
+      .where('grupo.esPublico = :esPublico', { esPublico: true });
 
-  if (misGruposIds.length > 0) {
-    query.andWhere('grupo.id NOT IN (:...ids)', { ids: misGruposIds });
+    if (misGruposIds.length > 0) {
+      query.andWhere('grupo.id NOT IN (:...ids)', { ids: misGruposIds });
+    }
+
+    return await query.getMany();
   }
-
-  return await query.getMany();
-}
 
   /**
    * Permite que una persona se una a un grupo público
    */
-  async unirseAGrupo(grupoId: number, personaId: string) {
+async unirseAGrupo(grupoId: number, personaId: string) {
     // 1. Verificar si el grupo existe
     const grupo = await this.grupoRepository.findOne({ where: { id: grupoId } });
     if (!grupo) throw new BadRequestException('El grupo no existe');
     if (!grupo.esPublico) throw new BadRequestException('Este grupo es privado');
 
-    // 2. Verificar si la persona existe (Soluciona error TS2345 y TS2769)
+    // 2. Verificar si la persona existe
     const persona = await this.personaRepository.findOne({ where: { id: personaId } });
     if (!persona) throw new BadRequestException('La persona no existe');
 
-// 3. Verificar si ya es miembro o está bloqueado
+    // 3. Verificar si ya es miembro, está bloqueado o había abandonado antes
     const existente = await this.grupoPersonaRepository.findOne({
       where: { grupo: { id: grupoId }, persona: { id: personaId } }
     });
+
     if (existente) {
       if (existente.rol === 'bloqueado') throw new BadRequestException('Estás bloqueado y no puedes unirte a este grupo');
-      throw new BadRequestException('Ya eres miembro de este grupo');
+      
+      // 🚀 SI HABÍA ABANDONADO: Lo reactivamos cambiando su rol a miembro y actualizando la fecha de unión
+      if (existente.rol === 'abandonado') {
+        existente.rol = 'miembro';
+        existente.fechaUnion = new Date(); // Reinicia la fecha para controlar el flujo de visualización
+        await this.grupoPersonaRepository.save(existente);
+
+        // Guardar log de re-unión en la bitácora
+        try {
+          const nuevoLog = this.logRepository.create({
+            grupo: grupo,
+            usuarioAfectado: persona,
+            usuarioAccion: undefined,
+            accion: 'UNIRSE'
+          });
+          await this.logRepository.save(nuevoLog);
+        } catch (logError) {
+          console.error('Error al guardar log de re-unirse a grupo:', logError);
+        }
+
+        return { success: true, message: 'Te has unido al grupo con éxito' };
+      }
+
+      throw new BadRequestException('Ya eres miembro activo de este grupo');
     }
 
-    // 4. Crear la membresía con objetos validados
+    // 4. Crear la membresía por primera vez si no existía registro previo
     const nuevaMembresia = this.grupoPersonaRepository.create({
       grupo: grupo,
       persona: persona,
@@ -243,12 +272,12 @@ async findPublicosDisponibles(personaId: string) {
       `Ahora eres miembro de la comunidad "${grupo.nombre}".`
     );
 
-    // 🚨 NUEVO: Guardar log de auto-unión
+    // Guardar log de auto-unión
     try {
       const nuevoLog = this.logRepository.create({
         grupo: grupo,
         usuarioAfectado: persona,
-        usuarioAccion: undefined, // Queda NULL en BD porque se unió solo
+        usuarioAccion: undefined,
         accion: 'UNIRSE'
       });
       await this.logRepository.save(nuevoLog);
@@ -442,6 +471,82 @@ async bloquearMiembro(grupoId: number, personaId: string, adminEjecutorId: strin
       relations: ['usuarioAfectado', 'usuarioAccion'],
       order: { fecha: 'DESC' }, // Trae primero los más recientes
     });
+  }
+
+/**
+   * Permite a un usuario abandonar voluntariamente un grupo manteniendo su historial
+   */
+  async abandonarGrupo(grupoId: number, personaId: string) {
+    // 1. Buscar la membresía activa del usuario
+    const membresia = await this.grupoPersonaRepository.findOne({
+      where: { grupo: { id: grupoId }, persona: { id: String(personaId) } },
+      relations: ['persona', 'grupo']
+    });
+
+    if (!membresia || membresia.rol === 'abandonado') {
+      throw new BadRequestException('No perteneces a este grupo o ya lo has abandonado');
+    }
+    if (membresia.rol === 'bloqueado') throw new BadRequestException('No puedes realizar esta acción');
+
+    const persona = membresia.persona;
+    const grupo = membresia.grupo;
+
+    if (!persona || !grupo) {
+       throw new BadRequestException('Datos inconsistentes en la membresía');
+    }
+
+    // 2. Registrar el Log de Auditoría
+    try {
+      const nuevoLog = this.logRepository.create({
+        grupo: grupo,
+        usuarioAfectado: persona,
+        usuarioAccion: persona, // Se afectó a sí mismo voluntariamente
+        accion: 'REMOVER' // Usamos REMOVER para mantener la coherencia de tu bitácora
+      });
+      await this.logRepository.save(nuevoLog);
+    } catch (logError) {
+      console.error('Error al guardar log de abandono voluntario:', logError);
+    }
+
+    // 3. 🚀 MODIFICACIÓN CLAVE: Cambiar el rol a 'abandonado' en lugar de usar .remove()
+    membresia.rol = 'abandonado';
+    await this.grupoPersonaRepository.save(membresia);
+
+    // 4. Notificar a los administradores del grupo (Persistente + ⚡ TIEMPO REAL)
+    try {
+      const administradores = await this.grupoPersonaRepository.find({
+        where: { grupo: { id: grupoId }, rol: 'administrador' },
+        relations: ['persona']
+      });
+
+      // Enviamos la notificación normal a la base de datos
+      const promesasNotis = administradores.map(admin => {
+        if (admin.persona) {
+          return this.notificacionService.crearNotificacion(
+            admin.persona,
+            'Salida de Miembro',
+            `${persona.nombre} ha abandonado voluntariamente el grupo "${grupo.nombre}".`
+          );
+        }
+        return Promise.resolve();
+      });
+      await Promise.all(promesasNotis);
+
+      // ⚡ TIEMPO REAL: Emitir evento por WebSockets a través del Gateway
+      // Usamos el canal de la sala del grupo para que todos los administradores conectados lo sepan al instante
+      if (this.mensajeGateway && this.mensajeGateway.server) {
+        this.mensajeGateway.server.to(`grupo_${grupoId}`).emit('usuario_abandono', {
+          grupoId: grupoId,
+          personaId: personaId,
+          nombrePersona: persona.nombre,
+          mensaje: `${persona.nombre} ha abandonado la comunidad.`
+        });
+      }
+    } catch (notifError) {
+      console.error('Error al notificar en tiempo real a los admins del abandono:', notifError);
+    }
+
+    return { success: true, message: 'Has abandonado el grupo exitosamente' };
   }
 
 }
