@@ -9,6 +9,7 @@ import { CreateGrupoDto } from './dto/create-grupo.dto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { GrupoMembresiaLog } from './entities/grupo-membresia-log.entity';
+import { MensajeGateway } from 'src/mensaje/mensaje.gateway';
 
 @Injectable()
 export class GrupoService {
@@ -22,7 +23,13 @@ export class GrupoService {
     @InjectRepository(Persona)
     private readonly personaRepository: Repository<Persona>,
 
+    @InjectRepository(GrupoMembresiaLog)
+    private readonly logRepository: Repository<GrupoMembresiaLog>,
+
     private readonly notificacionService: NotificacionService, // Inyectamos el servicio de notificaciones
+
+    private readonly mensajeGateway: MensajeGateway,
+
   ) {}
 
   async create(createGrupoDto: CreateGrupoDto) {
@@ -112,6 +119,21 @@ export class GrupoService {
     } catch (error) {
       // Logeamos el error pero no bloqueamos la creación del grupo si fallan las notis
       console.error('Error al generar notificaciones de grupo:', error);
+    }
+
+    // 🚨 NUEVO: Guardar logs de los miembros añadidos por el creador
+    try {
+      const logs = invitados.map(invitado => 
+        this.logRepository.create({
+          grupo: grupoGuardado,
+          usuarioAfectado: invitado,
+          usuarioAccion: creador,
+          accion: 'AÑADIR'
+        })
+      );
+      await this.logRepository.save(logs);
+    } catch (logError) {
+      console.error('Error al guardar logs de creación de grupo:', logError);
     }
 
     return {
@@ -221,6 +243,19 @@ async findPublicosDisponibles(personaId: string) {
       `Ahora eres miembro de la comunidad "${grupo.nombre}".`
     );
 
+    // 🚨 NUEVO: Guardar log de auto-unión
+    try {
+      const nuevoLog = this.logRepository.create({
+        grupo: grupo,
+        usuarioAfectado: persona,
+        usuarioAccion: undefined, // Queda NULL en BD porque se unió solo
+        accion: 'UNIRSE'
+      });
+      await this.logRepository.save(nuevoLog);
+    } catch (logError) {
+      console.error('Error al guardar log de unirse a grupo:', logError);
+    }
+
     return { success: true, message: 'Te has unido al grupo con éxito' };
   }
 
@@ -242,14 +277,13 @@ async findPublicosDisponibles(personaId: string) {
     return adminEnGrupo;
   }
 
-  /**
-   * Obtiene la lista de miembros de un grupo (con búsqueda opcional)
+/**
+   * Obtiene la lista de miembros de un grupo (con búsqueda opcional) - Incluye Bloqueados para control de Admin
    */
   async obtenerMiembros(grupoId: number, search?: string) {
     const query = this.grupoPersonaRepository.createQueryBuilder('gp')
       .leftJoinAndSelect('gp.persona', 'persona')
-      .where('gp.grupo_id = :grupoId', { grupoId })
-      .andWhere('gp.rol != :rolBloqueado', { rolBloqueado: 'bloqueado' }); // No mostramos a los bloqueados
+      .where('gp.grupo_id = :grupoId', { grupoId }); // 🚨 CORREGIDO: Ya no excluimos a los 'bloqueado'
 
     if (search) {
       query.andWhere('LOWER(persona.nombre) LIKE LOWER(:search)', { search: `%${search}%` });
@@ -289,6 +323,19 @@ async findPublicosDisponibles(personaId: string) {
       `Has sido promovido a administrador en el grupo "${membresia.grupo.nombre}".` 
     );
 
+    // 🚨 NUEVO: Guardar log de ascenso
+    try {
+      const nuevoLog = this.logRepository.create({
+        grupo: membresia.grupo,
+        usuarioAfectado: membresia.persona,
+        usuarioAccion: { id: adminEjecutorId } as Persona,
+        accion: 'PROMOVER'
+      });
+      await this.logRepository.save(nuevoLog);
+    } catch (logError) {
+      console.error('Error al guardar log de promover admin:', logError);
+    }
+
     return { success: true, message: 'Usuario promovido a administrador exitosamente' };
   }
 
@@ -314,6 +361,19 @@ async findPublicosDisponibles(personaId: string) {
        throw new BadRequestException('Datos inconsistentes en la membresía');
     }
 
+    // 🚨 NUEVO: Guardar log de remover miembro (Debe ir ANTES del remove de la membresía)
+    try {
+      const nuevoLog = this.logRepository.create({
+        grupo: grupo,
+        usuarioAfectado: persona,
+        usuarioAccion: { id: adminEjecutorId } as Persona,
+        accion: 'REMOVER'
+      });
+      await this.logRepository.save(nuevoLog);
+    } catch (logError) {
+      console.error('Error al guardar log de remover miembro:', logError);
+    }
+
     // Eliminamos el registro de la base de datos
     await this.grupoPersonaRepository.remove(membresia);
 
@@ -329,22 +389,59 @@ async findPublicosDisponibles(personaId: string) {
   /**
    * Bloquea a un miembro (no puede volver a unirse)
    */
-  async bloquearMiembro(grupoId: number, personaId: string, adminEjecutorId: string) {
-    await this.verificarAdmin(grupoId, adminEjecutorId);
+async bloquearMiembro(grupoId: number, personaId: string, adminEjecutorId: string) {
+  await this.verificarAdmin(grupoId, adminEjecutorId);
 
-    const membresia = await this.grupoPersonaRepository.findOne({
-      where: { grupo: { id: grupoId }, persona: { id: String(personaId) } },
-      relations: ['persona', 'grupo']
+  const membresia = await this.grupoPersonaRepository.findOne({
+    where: { grupo: { id: grupoId }, persona: { id: String(personaId) } },
+    relations: ['persona', 'grupo']
+  });
+
+  if (!membresia) throw new BadRequestException('El usuario no pertenece al grupo');
+  if (membresia.rol === 'administrador') throw new BadRequestException('No puedes bloquear a un administrador');
+
+  // Cambiamos el rol a bloqueado
+  membresia.rol = 'bloqueado';
+  await this.grupoPersonaRepository.save(membresia);
+
+  // ⚡ NUEVO: Despachamos la orden por WebSockets en tiempo real
+  try {
+    this.mensajeGateway.notificarBloqueo(grupoId, personaId);
+  } catch (error) {
+    console.error('No se pudo emitir el bloqueo por WebSocket, pero quedó guardado en BD:', error);
+  }
+
+  // ⚡ NUEVO: Despachamos la orden por WebSockets en tiempo real
+  try {
+    this.mensajeGateway.notificarBloqueo(grupoId, personaId);
+  } catch (error) {
+    console.error('No se pudo emitir el bloqueo por WebSocket, pero quedó guardado en BD:', error);
+  }
+
+  // 🚨 NUEVO: Guardar log de bloqueo
+  try {
+    const nuevoLog = this.logRepository.create({
+      grupo: membresia.grupo,
+      usuarioAfectado: membresia.persona,
+      usuarioAccion: { id: adminEjecutorId } as Persona,
+      accion: 'BLOQUEAR'
     });
+    await this.logRepository.save(nuevoLog);
+  } catch (logError) {
+    console.error('Error al guardar log de bloquear miembro:', logError);
+  }
 
-    if (!membresia) throw new BadRequestException('El usuario no pertenece al grupo');
-    if (membresia.rol === 'administrador') throw new BadRequestException('No puedes bloquear a un administrador');
-
-    // Cambiamos el rol a bloqueado en vez de borrarlo
-    membresia.rol = 'bloqueado';
-    await this.grupoPersonaRepository.save(membresia);
-
-    return { success: true, message: 'Usuario bloqueado. No podrá volver a unirse.' };
+  return { success: true, message: 'Usuario bloqueado. No podrá volver a unirse.' };
+}
+/**
+   * Obtiene la bitácora de cambios de membresía de un grupo específico
+   */
+  async obtenerLogsMembresia(grupoId: number) {
+    return await this.logRepository.find({
+      where: { grupo: { id: grupoId } },
+      relations: ['usuarioAfectado', 'usuarioAccion'],
+      order: { fecha: 'DESC' }, // Trae primero los más recientes
+    });
   }
 
 }

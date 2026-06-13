@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query } from '@nestjs/common';
 import { MensajeService } from './mensaje.service';
 
 @Controller('mensajes')
@@ -12,8 +12,11 @@ export class MensajeController {
     return this.mensajeService.enviarMensajeAGrupo(body.emisorId, body.grupoId, body.contenido);
   }
 
-  @Get('grupo/:id')
-  obtenerHistorial(@Param('id') grupoId: number) {
-    return this.mensajeService.obtenerMensajesPorGrupo(grupoId);
+@Get('grupo/:id')
+  obtenerHistorial(
+    @Param('id') grupoId: number,
+    @Query('personaId') personaId: string, // 🚨 NUEVO: Recibimos el id del usuario que consulta
+  ) {
+    return this.mensajeService.obtenerMensajesPorGrupo(grupoId, personaId);
   }
 }

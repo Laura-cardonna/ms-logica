@@ -61,4 +61,10 @@ export class GrupoController {
     return this.grupoService.bloquearMiembro(grupoId, personaId, req.user.id);
   }
 
+  @Get(':id/membresia-logs')
+  obtenerLogsMembresia(@Param('id') grupoId: number) {
+    // 🚨 CORREGIDO: Ahora llamamos al servicio como corresponde en NestJS
+    return this.grupoService.obtenerLogsMembresia(Number(grupoId));
+  }
+
 }

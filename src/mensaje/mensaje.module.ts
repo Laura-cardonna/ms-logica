@@ -5,13 +5,14 @@ import { MensajeController } from './mensaje.controller';
 import { Mensaje } from './entities/mensaje.entity';
 import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
 import { MensajeGateway } from './mensaje.gateway'; // <-- Importamos el Gateway
+import { GrupoPersona } from 'src/grupo_persona/entities/grupo_persona.entity'; // <-- Importamos la entidad para el repositorio
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Mensaje, DestinatarioGrupo])
+    TypeOrmModule.forFeature([Mensaje, DestinatarioGrupo, GrupoPersona])
   ],
   controllers: [MensajeController],
-  providers: [MensajeService, MensajeGateway], // <-- Agregamos MensajeGateway aquí
-  exports: [MensajeService],
+  providers: [MensajeService, MensajeGateway, GrupoPersona], // <-- Agregamos MensajeGateway aquí
+  exports: [MensajeService, MensajeGateway], // <-- Exportamos el servicio y el gateway para que otros módulos puedan usarlos
 })
 export class MensajeModule {}
