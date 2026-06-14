@@ -22,12 +22,10 @@ export class MensajeGateway {
     
   constructor(
     private readonly mensajeService: MensajeService,
-    // Inyectamos el repositorio aquí para validar bloqueos en tiempo real sin dependencias circulares
     @InjectRepository(GrupoPersona)
     private readonly grupoPersonaRepository: Repository<GrupoPersona>,
   ) {}
 
-  // MODIFICADO: Ahora el front también envía el personaId al unirse
   @SubscribeMessage('unirseAGrupo')
   handleJoinGroup(
     @MessageBody() data: { grupoId: number; personaId: string },
@@ -36,7 +34,6 @@ export class MensajeGateway {
     const roomName = `grupo_${data.grupoId}`;
     client.join(roomName);
     
-    // Unimos al cliente a una sala única para su usuario (útil para alertas directas)
     if (data.personaId) {
       client.join(`user_${data.personaId}`);
     }
@@ -56,10 +53,9 @@ export class MensajeGateway {
   @SubscribeMessage('enviarMensaje')
   async handleSendMessage(
     @MessageBody() data: { emisorId: string; grupoId: number; contenido: string },
-    @ConnectedSocket() client: Socket, // <-- Agregamos el cliente para responderle si hay error
+    @ConnectedSocket() client: Socket,
   ) {
     try {
-      // 🚨 CONTROL DE SEGURIDAD: Verificar si el usuario está bloqueado antes de procesar
       const membresia = await this.grupoPersonaRepository.findOne({
         where: { grupo: { id: Number(data.grupoId) }, persona: { id: String(data.emisorId) } }
       });
@@ -70,7 +66,6 @@ export class MensajeGateway {
         return; 
       }
 
-      // Si pasa el filtro, se guarda el mensaje de forma normal
       const mensajeGuardado = await this.mensajeService.enviarMensajeAGrupo(
         data.emisorId,
         Number(data.grupoId),
@@ -110,19 +105,52 @@ export class MensajeGateway {
     }
   }
 
-/**
-   * ⚡ MÉTODO MODIFICADO: Emite el bloqueo y remueve el socket de la sala del grupo
-   */
   notificarBloqueo(grupoId: number, personaId: string) {
     const roomPersonal = `user_${personaId}`;
     const roomGrupo = `grupo_${grupoId}`;
 
-    // 1. Emitimos la orden para que el front cambie la interfaz a rojo
     this.server.to(roomPersonal).emit('usuarioBloqueado', { grupoId: Number(grupoId) });
-
-    // 2. 🚀 NUEVO: Buscamos todos los sockets conectados en la sala privada de ese usuario y los sacamos del grupo
     this.server.in(roomPersonal).socketsLeave(roomGrupo);
 
     console.log(`📢 Evento de bloqueo emitido en tiempo real y socket removido de la sala ${roomGrupo} para el usuario ${personaId}`);
   }
-}
+
+  // ✨ AQUÍ ESTÁN LOS MÉTODOS NUEVOS CORRECTAMENTE ADENTRO DE LA CLASE
+  @SubscribeMessage('enviarMensajePrivado')
+  async handleMensajePrivado(
+    @MessageBody() data: { emisorId: string; receptorId: string; contenido: string; ubicacion?: any },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const mensajeParaEmitir = {
+        id: Date.now(), 
+        emisorId: data.emisorId,
+        receptorId: data.receptorId,
+        contenido: data.contenido,
+        ubicacion: data.ubicacion,
+        fechaEnvio: new Date(),
+        leidoAt: null
+      };
+
+      const roomDestinatario = `user_${data.receptorId}`;
+      this.server.to(roomDestinatario).emit('recibirMensajePrivado', mensajeParaEmitir);
+
+      console.log(`💬 Mensaje privado enviado de ${data.emisorId} a ${data.receptorId}`);
+    } catch (error) {
+      console.error('Error procesando mensaje privado en el gateway:', error);
+      client.emit('errorChat', { mensaje: 'No se pudo enviar el mensaje privado.' });
+    }
+  }
+
+  @SubscribeMessage('marcarMensajeLeido')
+  async handleMensajeLeido(
+    @MessageBody() data: { mensajeId: number; emisorOriginalId: string; fechaLeido: Date },
+  ) {
+    try {
+      const roomEmisorOriginal = `user_${data.emisorOriginalId}`;
+      this.server.to(roomEmisorOriginal).emit('mensajeLeidoConfirmado', data);
+    } catch (error) {
+      console.error('Error al confirmar lectura:', error);
+    }
+  }
+} 

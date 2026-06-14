@@ -8,6 +8,7 @@ import { Bus } from '../bus/entities/bus.entity';
 import { Ruta } from '../ruta/entities/ruta.entity';
 import { Paradero } from '../paradero/entities/paradero.entity';
 import { Programacion } from '../programacion/entities/programacion.entity';
+import { MonitoreoGateway } from './monitore.gateway';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { Programacion } from '../programacion/entities/programacion.entity';
     HttpModule,
   ],
   controllers: [MonitoreoController],
-  providers: [MonitoreoService],
-  exports: [MonitoreoService],
+  providers: [MonitoreoService, MonitoreoGateway], // Agrega el gateway a los providers
+  exports: [MonitoreoService, MonitoreoGateway], // Exporta el servicio y el gateway para que puedan ser usados en otros módulos
 })
 export class MonitoreoModule {}

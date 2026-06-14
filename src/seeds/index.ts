@@ -29,19 +29,19 @@ import { seedValidaciones } from './validacion.seed';
 export async function runSeeds(dataSource: DataSource) {
   console.log('\n🌱 Starting database seeding...\n');
 
-  try {
-    // Fase 1: Entidades sin dependencias
+ try {
+    // Fase 1: Entidades base ABSOLUTAS (No dependen de absolutamente nada)
+    await seedPersonas(dataSource); // ✨ ¡LA CLAVE ESTÁ AQUÍ! Primero las personas
     await seedEmpresas(dataSource);
     await seedMetodosPago(dataSource);
-    await seedConductores(dataSource);
     await seedIncidentes(dataSource);
     await seedNodos(dataSource);
     await seedDirecciones(dataSource);
-    await seedPersonas(dataSource);
 
     // Fase 2: Entidades que dependen de Fase 1
+    await seedConductores(dataSource); // ✨ Ahora sí, los conductores pueden usar las personas
+    await seedCiudadanos(dataSource);  // ✨ Igual los ciudadanos
     await seedBuses(dataSource);
-    await seedCiudadanos(dataSource);
     await seedParaderos(dataSource);
     await seedRutas(dataSource);
     await seedGrupos(dataSource);

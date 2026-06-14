@@ -29,7 +29,7 @@ export class IncidenteBusService {
     private readonly busRepository: Repository<Bus>,
   ) {}
 
-  // 📁 Reemplaza ÚNICAMENTE este método dentro de tu src/incidente_bus/incidente_bus.service.ts
+  
 
   async reportarIncidente(
     dto: CreateIncidenteBusDto,
