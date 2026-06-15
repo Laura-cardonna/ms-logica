@@ -20,14 +20,12 @@ export async function seedPersonas(dataSource: DataSource) {
     { id: 'e8b5f2a1-3d4c-4b6e-9f8a-1c2d3e4f5a6b', nombre: 'Usuario Sin Saldo', cedula: '55555', telefono: '3150000000', email: 'pobre@email.com' },
   ];
 
-  for (const persona of personas) {
-    const existing = await personaRepository.findOne({
-      where: { id: persona.id },
-    });
+  for (const p of personas) {
+    const existing = await personaRepository.findOne({ where: { id: p.id } });
     if (!existing) {
-      await personaRepository.save(persona);
+      await personaRepository.save(p);
     }
   }
 
-  console.log('✓ Personas seeded');
+  console.log('✓ Personas seeded exitosamente');
 }

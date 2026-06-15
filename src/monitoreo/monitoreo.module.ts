@@ -9,14 +9,23 @@ import { Ruta } from '../ruta/entities/ruta.entity';
 import { Paradero } from '../paradero/entities/paradero.entity';
 import { Programacion } from '../programacion/entities/programacion.entity';
 import { MonitoreoGateway } from './monitore.gateway';
+import { IncidenteBus } from '../incidente_bus/entities/incidente_bus.entity'; // 👈 1. IMPORTACIÓN CORREGIDA: Ajusta la ruta relativa exacta según tu árbol de directorios
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UbicacionBus, Bus, Ruta, Paradero, Programacion]),
+    // 👈 2. MATRIZ EN FORMATO JSON DE ENTIDADES ACTUALIZADA PARA CUMPLIR CON HU-ENTR-3-002
+    TypeOrmModule.forFeature([
+      UbicacionBus, 
+      Bus, 
+      Ruta, 
+      Paradero, 
+      Programacion, 
+      IncidenteBus // 👈 SOLUCIÓN: Agregado a la base de datos del módulo de monitoreo
+    ]),
     HttpModule,
   ],
   controllers: [MonitoreoController],
-  providers: [MonitoreoService, MonitoreoGateway], // Agrega el gateway a los providers
-  exports: [MonitoreoService, MonitoreoGateway], // Exporta el servicio y el gateway para que puedan ser usados en otros módulos
+  providers: [MonitoreoService, MonitoreoGateway], 
+  exports: [MonitoreoService, MonitoreoGateway], 
 })
 export class MonitoreoModule {}
