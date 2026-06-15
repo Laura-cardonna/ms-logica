@@ -24,56 +24,68 @@ export class MonitoreoService {
     @InjectRepository(Programacion)
     private programacionRepo: Repository<Programacion>,
     private httpService: HttpService,
-    private readonly monitoreoGateway: MonitoreoGateway, // 👈 GATEWAY INYECTADO
+    private readonly monitoreoGateway: MonitoreoGateway,
   ) {}
 
-  async actualizarUbicacion(
-    busId: number,
-    latitude: number,
-    longitude: number,
-    velocidad: number,
-  ) {
+  async actualizarUbicacion(busId: number, latitude: number, longitude: number, velocidad: number) {
     const bus = await this.busRepo.findOne({
       where: { id: busId },
       relations: ['gps'],
     });
     if (!bus) throw new NotFoundException('Bus no encontrado');
 
+    const retraso = await this.verificarRetraso(busId);
+    const estado = retraso.estaRetrasado ? 'incidente' : 'normal';
+
     const ubicacion = this.ubicacionRepo.create({
       bus,
       latitude,
       longitude,
       velocidad,
-    });
+      estado, 
+    } as any);
     await this.ubicacionRepo.save(ubicacion);
 
-    // ✨ EMISIÓN AL WEBSOCKET PARA TIEMPO REAL
     this.monitoreoGateway.emitirActualizacionBus({
       busId,
       placa: bus.placa,
       latitud: latitude,
       longitud: longitude,
       velocidad,
+      estado,
       timestamp: new Date()
     });
 
-    // Actualiza el dispositivo GPS del bus
     if (bus.gps) {
       bus.gps.latitude = latitude;
       bus.gps.longitude = longitude;
       bus.gps.lastUpdate = new Date();
-      // Opcional: podrías guardar el GPS aquí si fuera necesario
     }
 
-    const retraso = await this.verificarRetraso(busId);
     if (retraso.estaRetrasado) {
       await this.enviarAlertaRetraso(bus.placa ?? '', retraso.minutosRetraso);
     }
 
-    return { success: true };
+    return { success: true, estado };
   }
 
-  // ... (Tus métodos getBusesActivosPorRuta, getEtaParaParadero, etc. permanecen igual)
+  // --- MÉTODOS REQUERIDOS POR EL CONTROLADOR ---
+  async getBusesActivosPorRuta(rutaId: number) {
+    return await this.ubicacionRepo.find({
+      where: { ruta: { id: rutaId as any } },
+      relations: ['bus'],
+      order: { timestamp: 'DESC' } as any,
+      take: 20
+    });
+  }
+
+  async getEtaParaParadero(busId: number, paraderoId: number) {
+    const bus = await this.busRepo.findOne({ where: { id: busId } });
+    const paradero = await this.paraderoRepo.findOne({ where: { id: paraderoId } });
+    if (!bus || !paradero) throw new NotFoundException('Bus o Paradero no encontrado');
+    return { busId, paraderoId, etaMinutos: 5 }; 
+  }
+  // ---------------------------------------------
 
   private async verificarRetraso(busId: number) {
     const UMBRAL_MINUTOS = 10;
@@ -83,18 +95,12 @@ export class MonitoreoService {
         where: { bus: { id: busId }, estado: EstadoProgramacion.EN_CURSO } as any,
         order: { fechaCreacion: 'DESC' } as any,
       });
-
       if (!programacion) return { estaRetrasado: false, minutosRetraso: 0 };
-
       const fechaStr = programacion.fecha ? new Date(programacion.fecha).toISOString().split('T')[0] : ahora.toISOString().split('T')[0];
       const salidaEsperada = new Date(`${fechaStr}T${programacion.horaSalida ?? '00:00'}:00`);
       const minutosDesdePartida = Math.round((ahora.getTime() - salidaEsperada.getTime()) / 60000);
       const minutosRetraso = minutosDesdePartida - (programacion.margenToleranciaMinutos ?? 0);
-
-      return {
-        estaRetrasado: minutosRetraso > UMBRAL_MINUTOS,
-        minutosRetraso: Math.max(0, minutosRetraso),
-      };
+      return { estaRetrasado: minutosRetraso > UMBRAL_MINUTOS, minutosRetraso: Math.max(0, minutosRetraso) };
     } catch {
       return { estaRetrasado: false, minutosRetraso: 0 };
     }

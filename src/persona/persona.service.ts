@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, Not } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Persona } from './entities/persona.entity';
 import { CreatePersonaDto } from './dto/create-persona.dto';
 import { UpdatePersonaDto } from './dto/update-persona.dto';
@@ -12,25 +12,15 @@ export class PersonaService {
     private readonly personaRepository: Repository<Persona>,
   ) {}
 
-// 1. ASEGÚRATE de agregar 'Not' en los imports de typeorm arriba:
-// import { Repository, Like, Not } from 'typeorm';
-
-  async buscarPorNombre(nombre: string, excluirId?: string): Promise<Persona[]> {
-    // Construimos las condiciones del filtro where
-    const filtros: any = {
-      nombre: Like(`%${nombre}%`),
-    };
-
-    // Si viene el ID del creador, lo excluimos de los resultados
+  // Verifica que el nombre sea "buscar"
+async buscar(query: string, excluirId?: string): Promise<Persona[]> {
+    const qb = this.personaRepository.createQueryBuilder('persona');
+    qb.where('(persona.nombre LIKE :q OR persona.email LIKE :q)', { q: `%${query}%` });
     if (excluirId) {
-      filtros.id = Not(excluirId);
+        qb.andWhere('persona.id != :excluirId', { excluirId });
     }
-
-    return await this.personaRepository.find({
-      where: filtros,
-      take: 10, // Limitamos a 10 resultados para que la lista en el Front sea manejable
-    });
-  }
+    return await qb.take(10).getMany();
+}
 
   create(createPersonaDto: CreatePersonaDto) {
     const nuevaPersona = this.personaRepository.create(createPersonaDto);
@@ -41,7 +31,7 @@ export class PersonaService {
     return this.personaRepository.find();
   }
 
-  async findOne(id: string) { // Cambiado a string por el UUID
+  async findOne(id: string) {
     const persona = await this.personaRepository.findOne({ where: { id } });
     if (!persona) throw new NotFoundException(`Persona con ID ${id} no encontrada`);
     return persona;

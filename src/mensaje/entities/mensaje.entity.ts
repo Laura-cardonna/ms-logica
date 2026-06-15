@@ -14,6 +14,10 @@ export class Mensaje {
     @Column({ name: 'fecha_envio', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     fechaEnvio?: Date;
 
+    // 👇 NUEVO CAMPO AÑADIDO DE FORMA SEGURA 👇
+    @Column({ type: 'timestamp', nullable: true })
+    leidoAt?: Date;
+
     @ManyToOne(() => Persona, (p) => p.mensajesEnviados)
     @JoinColumn({ name: 'emisor_id' })
     emisor?: Persona;

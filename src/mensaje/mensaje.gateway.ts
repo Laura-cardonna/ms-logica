@@ -115,7 +115,6 @@ export class MensajeGateway {
     console.log(`📢 Evento de bloqueo emitido en tiempo real y socket removido de la sala ${roomGrupo} para el usuario ${personaId}`);
   }
 
-  // ✨ AQUÍ ESTÁN LOS MÉTODOS NUEVOS CORRECTAMENTE ADENTRO DE LA CLASE
   @SubscribeMessage('enviarMensajePrivado')
   async handleMensajePrivado(
     @MessageBody() data: { emisorId: string; receptorId: string; contenido: string; ubicacion?: any },
@@ -142,15 +141,22 @@ export class MensajeGateway {
     }
   }
 
+  // ✨ AQUÍ INTEGRAMOS LA BASE DE DATOS SIN TOCAR TUS PARÁMETROS ORIGINALES
   @SubscribeMessage('marcarMensajeLeido')
   async handleMensajeLeido(
     @MessageBody() data: { mensajeId: number; emisorOriginalId: string; fechaLeido: Date },
   ) {
     try {
+      // 1. Guardar la fecha real de lectura en MySQL usando tu MensajeService
+      await this.mensajeService.marcarComoLeido(data.mensajeId);
+
+      // 2. Avisar en tiempo real al usuario original para que le ponga el "check azul"
       const roomEmisorOriginal = `user_${data.emisorOriginalId}`;
       this.server.to(roomEmisorOriginal).emit('mensajeLeidoConfirmado', data);
+      
+      console.log(`✅ Mensaje ${data.mensajeId} marcado como leído en BD y notificado.`);
     } catch (error) {
       console.error('Error al confirmar lectura:', error);
     }
   }
-} 
+}

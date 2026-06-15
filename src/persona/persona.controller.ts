@@ -17,14 +17,15 @@ export class PersonaController {
     return this.personaService.findAll();
   }
 
-  // CORREGIDO: Ahora recibe el nombre y opcionalmente el ID a excluir
-  // Se accede como: GET /persona/buscar?nombre=juan&excluirId=uuid-del-creador
+  // Ahora se accede como: GET /persona/buscar?query=texto&excluirId=uuid
   @Get('buscar')
   async buscar(
-    @Query('nombre') nombre: string,
-    @Query('excluirId') excluirId?: string, // <-- Agregamos esta línea
+    @Query('query') query: string,
+    @Query('excluirId') excluirId?: string,
   ) {
-    return this.personaService.buscarPorNombre(nombre, excluirId); // <-- Pasamos el excluirId al servicio
+    // Si no hay query, devolvemos vacío para no traer toda la base
+    if (!query) return [];
+    return this.personaService.buscar(query, excluirId);
   }
 
   @Get(':id')

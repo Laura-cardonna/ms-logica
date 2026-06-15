@@ -5,8 +5,9 @@ import { Mensaje } from './entities/mensaje.entity';
 import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
 import { Persona } from 'src/persona/entities/persona.entity';
 import { Grupo } from 'src/grupo/entities/grupo.entity';
-import {GrupoPersona} from 'src/grupo_persona/entities/grupo_persona.entity'; // <-- Importamos la entidad para el repositorio
+import { GrupoPersona } from 'src/grupo_persona/entities/grupo_persona.entity';
 import { GrupoMembresiaLog } from 'src/grupo/entities/grupo-membresia-log.entity';
+
 @Injectable()
 export class MensajeService {
   constructor(
@@ -22,6 +23,16 @@ export class MensajeService {
     @InjectRepository(GrupoMembresiaLog)
     private readonly logRepository: Repository<GrupoMembresiaLog>,
   ) { }
+
+  // 👇 NUEVO MÉTODO: Marcar mensaje como leído 👇
+  async marcarComoLeido(mensajeId: number) {
+    const mensaje = await this.mensajeRepository.findOne({ where: { id: mensajeId } });
+    if (mensaje) {
+      mensaje.leidoAt = new Date();
+      return await this.mensajeRepository.save(mensaje);
+    }
+    throw new Error('Mensaje no encontrado');
+  }
 
   // Enviar mensaje a un grupo
   async enviarMensajeAGrupo(emisorId: string, grupoId: number, contenido: string) {
@@ -44,13 +55,14 @@ export class MensajeService {
     return { ...mensajeGuardado, grupoId };
   }
 
-// Obtener historial del chat de un grupo validando bloqueos, abandonos y reingresos
+  // Obtener historial del chat de un grupo validando bloqueos, abandonos y reingresos
   async obtenerMensajesPorGrupo(grupoId: number, personaId?: string) {
     let membresia: GrupoPersona | null = null;
 
     console.log(`\n============== DETECTANDO RECARGA ==============`);
     console.log(`-> GRUPO ID RECIBIDO:`, grupoId);
     console.log(`-> PERSONA ID RECIBIDO DESDE FRONTEND:`, personaId);
+    
     // 1. Validar el rol del usuario si viene su ID
     if (personaId) {
       membresia = await this.grupoPersonaRepository.findOne({
@@ -75,6 +87,7 @@ export class MensajeService {
       id: rel.mensaje?.id,
       contenido: rel.mensaje?.contenido,
       fechaEnvio: rel.mensaje?.fechaEnvio,
+      leidoAt: rel.mensaje?.leidoAt, // 👇 NUEVO: Mapeamos el leidoAt para el Frontend 👇
       emisorNombre: rel.mensaje?.emisor?.nombre,
       emisorId: rel.mensaje?.emisor?.id,
     }));
@@ -83,12 +96,10 @@ export class MensajeService {
     if (membresia && personaId) {
       
       // 🏳️ ESTADO: ABANDONADO ACTUALMENTE
-// 🏳️ ESTADO: ABANDONADO ACTUALMENTE
       if (membresia.rol === 'abandonado') {
         console.log(`\n--- 🔍 DIAGNÓSTICO EN CONSOLA ---`);
         console.log(`[Paso 1] Usuario ${personaId} está como ABANDONADO en Grupo: ${grupoId}`);
 
-        // Buscamos forzando los tipos numéricos y de string limpios para TypeORM
         const ultimoLogSalida = await this.logRepository.findOne({
           where: {
             grupo: { id: Number(grupoId) },
@@ -119,11 +130,10 @@ export class MensajeService {
         return mensajesFiltrados;
       }
       
-// 🟢 ESTADO: MIEMBRO ACTIVO / REINGRESADO
+      // 🟢 ESTADO: MIEMBRO ACTIVO / REINGRESADO
       if (membresia.rol === 'miembro' || membresia.rol === 'administrador') {
         const fechaUnionActual = membresia.fechaUnion ? new Date(membresia.fechaUnion).getTime() : null;
         
-        // Buscamos forzando los tipos limpios para TypeORM igual que en el bloque de abandonado
         const ultimoLogSalida = await this.logRepository.findOne({
           where: {
             grupo: { id: Number(grupoId) },
@@ -140,9 +150,7 @@ export class MensajeService {
             if (!msg.fechaEnvio) return false;
             const fechaMsg = new Date(msg.fechaEnvio).getTime();
             
-            // FILTRO ESTRICTO EN MILISEGUNDOS:
-            // Pasa si el mensaje es de antes de salirse O de después de volver a entrar.
-            // Los del intermedio quedan completamente eliminados.
+            // FILTRO ESTRICTO EN MILISEGUNDOS
             return fechaMsg <= fechaSalida || fechaMsg >= fechaUnionActual;
           });
         }

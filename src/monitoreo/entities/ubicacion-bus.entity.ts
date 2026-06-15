@@ -16,6 +16,8 @@ export class UbicacionBus {
   @Column('decimal', { precision: 5, scale: 2, nullable: true })
   velocidad: number;
 
+  
+
   @ManyToOne(() => Bus)
   bus: Bus;
 
