@@ -58,7 +58,7 @@ export class GrupoController {
   @UseGuards(JwtAuthGuard)
   @Patch(':id/miembros/:personaId/bloquear')
   bloquearMiembro(@Param('id') grupoId: number, @Param('personaId') personaId: string, @Req() req: any) {
-    return this.grupoService.bloquearMiembro(grupoId, personaId, req.user.id);
+    return (this.grupoService as any).bloquearMiembro(grupoId, personaId, req.user.id);
   }
 
   @Get(':id/membresia-logs')

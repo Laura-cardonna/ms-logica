@@ -310,17 +310,18 @@ async unirseAGrupo(grupoId: number, personaId: string) {
    * Obtiene la lista de miembros de un grupo (con búsqueda opcional) - Incluye Bloqueados para control de Admin
    */
   async obtenerMiembros(grupoId: number, search?: string) {
-    const query = this.grupoPersonaRepository.createQueryBuilder('gp')
-      .leftJoinAndSelect('gp.persona', 'persona')
-      .where('gp.grupo_id = :grupoId', { grupoId }); // 🚨 CORREGIDO: Ya no excluimos a los 'bloqueado'
+  const query = this.grupoPersonaRepository.createQueryBuilder('gp')
+    .leftJoinAndSelect('gp.persona', 'persona')
+    .where('gp.grupo_id = :grupoId', { grupoId })
+    .andWhere('gp.rol != :rolAbandonado', { rolAbandonado: 'abandonado' }); // ✨ SOLUCIÓN: Excluir a los que abandonaron
 
-    if (search) {
-      query.andWhere('LOWER(persona.nombre) LIKE LOWER(:search)', { search: `%${search}%` });
-    }
-
-    query.orderBy('gp.fechaUnion', 'DESC');
-    return await query.getMany();
+  if (search) {
+    query.andWhere('LOWER(persona.nombre) LIKE LOWER(:search)', { search: `%${search}%` });
   }
+
+  query.orderBy('gp.fechaUnion', 'DESC');
+  return await query.getMany();
+}
 
 /**
    * Promueve un miembro a administrador
@@ -371,6 +372,9 @@ async unirseAGrupo(grupoId: number, personaId: string) {
   /**
    * Remueve a un miembro del grupo
    */
+  /**
+   * Remueve a un miembro del grupo (Expulsión por Admin)
+   */
   async removerMiembro(grupoId: number, personaId: string, adminEjecutorId: string) {
     await this.verificarAdmin(grupoId, adminEjecutorId);
 
@@ -385,12 +389,10 @@ async unirseAGrupo(grupoId: number, personaId: string) {
     const persona = membresia.persona;
     const grupo = membresia.grupo;
 
-    // Verificaciones para que TypeScript no arroje error
     if (!persona || !grupo) {
        throw new BadRequestException('Datos inconsistentes en la membresía');
     }
 
-    // 🚨 NUEVO: Guardar log de remover miembro (Debe ir ANTES del remove de la membresía)
     try {
       const nuevoLog = this.logRepository.create({
         grupo: grupo,
@@ -403,8 +405,22 @@ async unirseAGrupo(grupoId: number, personaId: string) {
       console.error('Error al guardar log de remover miembro:', logError);
     }
 
-    // Eliminamos el registro de la base de datos
-    await this.grupoPersonaRepository.remove(membresia);
+    // 1. Cambiamos el rol a 'abandonado' para guardar el historial sin borrar la fila
+    membresia.rol = 'abandonado'; 
+    await this.grupoPersonaRepository.save(membresia);
+
+    // 2. ⚡ EMISIÓN WEBSOCKET MODIFICADA:
+    // Cambiamos 'usuario_expulsado' por 'usuario_abandono' para que tu Front lo detecte en tiempo real
+    try {
+      if (this.mensajeGateway && this.mensajeGateway.server) {
+        this.mensajeGateway.server.to(`grupo_${grupoId}`).emit('usuario_abandono', {
+          grupoId: grupoId,
+          personaId: personaId
+        });
+      }
+    } catch (error) {
+      console.error('Error al emitir expulsión por WS', error);
+    }
 
     await this.notificacionService.crearNotificacion(
       persona,
@@ -414,54 +430,6 @@ async unirseAGrupo(grupoId: number, personaId: string) {
 
     return { success: true, message: 'Usuario removido del grupo' };
   }
-
-  /**
-   * Bloquea a un miembro (no puede volver a unirse)
-   */
-async bloquearMiembro(grupoId: number, personaId: string, adminEjecutorId: string) {
-  await this.verificarAdmin(grupoId, adminEjecutorId);
-
-  const membresia = await this.grupoPersonaRepository.findOne({
-    where: { grupo: { id: grupoId }, persona: { id: String(personaId) } },
-    relations: ['persona', 'grupo']
-  });
-
-  if (!membresia) throw new BadRequestException('El usuario no pertenece al grupo');
-  if (membresia.rol === 'administrador') throw new BadRequestException('No puedes bloquear a un administrador');
-
-  // Cambiamos el rol a bloqueado
-  membresia.rol = 'bloqueado';
-  await this.grupoPersonaRepository.save(membresia);
-
-  // ⚡ NUEVO: Despachamos la orden por WebSockets en tiempo real
-  try {
-    this.mensajeGateway.notificarBloqueo(grupoId, personaId);
-  } catch (error) {
-    console.error('No se pudo emitir el bloqueo por WebSocket, pero quedó guardado en BD:', error);
-  }
-
-  // ⚡ NUEVO: Despachamos la orden por WebSockets en tiempo real
-  try {
-    this.mensajeGateway.notificarBloqueo(grupoId, personaId);
-  } catch (error) {
-    console.error('No se pudo emitir el bloqueo por WebSocket, pero quedó guardado en BD:', error);
-  }
-
-  // 🚨 NUEVO: Guardar log de bloqueo
-  try {
-    const nuevoLog = this.logRepository.create({
-      grupo: membresia.grupo,
-      usuarioAfectado: membresia.persona,
-      usuarioAccion: { id: adminEjecutorId } as Persona,
-      accion: 'BLOQUEAR'
-    });
-    await this.logRepository.save(nuevoLog);
-  } catch (logError) {
-    console.error('Error al guardar log de bloquear miembro:', logError);
-  }
-
-  return { success: true, message: 'Usuario bloqueado. No podrá volver a unirse.' };
-}
 /**
    * Obtiene la bitácora de cambios de membresía de un grupo específico
    */
