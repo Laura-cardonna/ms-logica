@@ -12,7 +12,7 @@ export async function seedBoletos(dataSource: DataSource) {
   const ciudadanoRepository = dataSource.getRepository(Ciudadano);
 
   const ciudadanos = await ciudadanoRepository.find();
-  const programaciones = await programacionRepository.find();
+  const programaciones = await programacionRepository.find({ relations: ['ruta'] });
   const metodosPagoCiudadano = await metodoPagoCiudadanoRepository.find();
 
   if (

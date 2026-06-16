@@ -37,9 +37,18 @@ export async function seedHistoriales(dataSource: DataSource) {
     },
   ];
 
+  // ✅ Versión corregida y segura contra duplicados:
   for (const historial of historiales) {
-    await historialRepository.save(historial);
+    const existing = await historialRepository.findOne({
+      where: { 
+        descripcion: historial.descripcion,
+        nodo: { id: historial.nodo.id }
+      },
+    });
+
+    if (!existing) {
+      await historialRepository.save(historial);
+    }
   }
 
-  console.log('✓ Historiales seeded');
-}
+  console.log('✓ Historiales seeded (sin duplicados)');}

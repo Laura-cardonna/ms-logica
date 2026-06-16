@@ -17,9 +17,9 @@ export async function seedRutasParaderos(dataSource: DataSource) {
   });
   const paraderos = await paraderoRepository.find();
 
-  if (!rutaCentroSur || !rutaCentroNorte || paraderos.length === 0) {
+  if (!rutaCentroSur || !rutaCentroNorte || paraderos.length < 3) {
     console.log(
-      '⚠ No se pueden crear rutas-paraderos sin rutas o paraderos previos',
+      '⚠ No se pueden crear rutas-paraderos. Verifica que existan las rutas y al menos 3 paraderos creados.',
     );
     return;
   }
