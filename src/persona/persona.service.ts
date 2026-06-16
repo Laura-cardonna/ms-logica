@@ -12,18 +12,21 @@ export class PersonaService {
     private readonly personaRepository: Repository<Persona>,
   ) {}
 
-  // Verifica que el nombre sea "buscar"
-async buscar(query: string, excluirId?: string, rolAutenticado?: string): Promise<Persona[]> {
+  /**
+   * REPARADO: Búsqueda segura e insensible a mayúsculas/minúsculas para MySQL
+   */
+  async buscar(query: string, excluirId?: string, rolAutenticado?: string): Promise<Persona[]> {
     const qb = this.personaRepository.createQueryBuilder('persona');
     
-    // Búsqueda por coincidencia en email o nombre
-    qb.where('(persona.nombre ILIKE :q OR persona.email ILIKE :q)', { q: `%${query}%` });
+    // ✅ CORRECCIÓN: Se cambió 'ILIKE' por 'LIKE' (MySQL maneja insensibilidad por defecto)
+    qb.where('(persona.nombre LIKE :q OR persona.email LIKE :q)', { q: `%${query}%` });
     
+    // Evitar que el usuario se busque a sí mismo
     if (excluirId) {
         qb.andWhere('persona.id != :excluirId', { excluirId });
     }
 
-    // 🛡️ Seguridad por Roles (CA-1)
+    // 🛡️ Seguridad por Roles (CA-1) - ¡INTACTO!
     if (rolAutenticado) {
       if (rolAutenticado.toLowerCase() === 'ciudadano') {
         // Un ciudadano solo ve al equipo de operaciones y su conductor
