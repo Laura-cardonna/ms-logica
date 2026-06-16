@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Mensaje } from './entities/mensaje.entity';
@@ -24,7 +24,43 @@ export class MensajeService {
     private readonly logRepository: Repository<GrupoMembresiaLog>,
   ) { }
 
-  // 👇 NUEVO MÉTODO: Marcar mensaje como leído 👇
+  // ==========================================
+  // ✨ NUEVO: Guardar mensaje privado (Chat 1 a 1)
+  // ==========================================
+  async enviarMensajePrivado(emisorId: string, receptorId: string, contenido: string, ubicacion?: any) {
+    // 🚨 Validación estricta de 500 caracteres
+    if (contenido && contenido.length > 500) {
+      throw new BadRequestException('El mensaje excede el límite permitido de 500 caracteres.');
+    }
+
+    const nuevoMensaje = this.mensajeRepository.create({
+      contenido,
+      emisor: { id: emisorId } as Persona, 
+      receptor: { id: receptorId } as Persona,
+      // ✅ CORRECCIÓN FINAL: Cambiamos null por undefined para que TypeScript esté feliz
+      ubicacion: ubicacion ? JSON.stringify(ubicacion) : undefined, 
+      fechaEnvio: new Date()
+    });
+
+    return await this.mensajeRepository.save(nuevoMensaje);
+  }
+
+  // ==========================================
+  // ✨ NUEVO: Obtener historial directo (Bandeja 1 a 1)
+  // ==========================================
+  async obtenerHistorialPrivado(emisorId: string, receptorId: string) {
+    return await this.mensajeRepository.find({
+      where: [
+        // ✅ CORRECCIÓN 3: Buscamos usando el objeto receptor, no la propiedad plana
+        { emisor: { id: emisorId }, receptor: { id: receptorId } },
+        { emisor: { id: receptorId }, receptor: { id: emisorId } },
+      ],
+      relations: ['emisor', 'receptor'], // Traemos los datos para mostrar los nombres en el frontend
+      order: { fechaEnvio: 'ASC' }
+    });
+  }
+
+  // 👇 MÉTODO ORIGINAL: Marcar mensaje como leído 👇
   async marcarComoLeido(mensajeId: number) {
     const mensaje = await this.mensajeRepository.findOne({ where: { id: mensajeId } });
     if (mensaje) {
@@ -34,8 +70,13 @@ export class MensajeService {
     throw new Error('Mensaje no encontrado');
   }
 
-  // Enviar mensaje a un grupo
+  // 👇 MÉTODO ORIGINAL ACTUALIZADO: Enviar mensaje a un grupo 👇
   async enviarMensajeAGrupo(emisorId: string, grupoId: number, contenido: string) {
+    // 🚨 Validación estricta de 500 caracteres (agregada aquí también)
+    if (contenido && contenido.length > 500) {
+      throw new BadRequestException('El mensaje excede los 500 caracteres permitidos.');
+    }
+
     // 1. Creamos el mensaje base
     const nuevoMensaje = this.mensajeRepository.create({
       contenido,
@@ -55,7 +96,7 @@ export class MensajeService {
     return { ...mensajeGuardado, grupoId };
   }
 
-  // Obtener historial del chat de un grupo validando bloqueos, abandonos y reingresos
+  // 👇 MÉTODO ORIGINAL INTACTO: Obtener historial del chat de un grupo 👇
   async obtenerMensajesPorGrupo(grupoId: number, personaId?: string) {
     let membresia: GrupoPersona | null = null;
 
@@ -87,7 +128,7 @@ export class MensajeService {
       id: rel.mensaje?.id,
       contenido: rel.mensaje?.contenido,
       fechaEnvio: rel.mensaje?.fechaEnvio,
-      leidoAt: rel.mensaje?.leidoAt, // 👇 NUEVO: Mapeamos el leidoAt para el Frontend 👇
+      leidoAt: rel.mensaje?.leidoAt,
       emisorNombre: rel.mensaje?.emisor?.nombre,
       emisorId: rel.mensaje?.emisor?.id,
     }));

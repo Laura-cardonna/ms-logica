@@ -115,29 +115,32 @@ export class MensajeGateway {
     console.log(`📢 Evento de bloqueo emitido en tiempo real y socket removido de la sala ${roomGrupo} para el usuario ${personaId}`);
   }
 
-  @SubscribeMessage('enviarMensajePrivado')
+@SubscribeMessage('enviarMensajePrivado')
   async handleMensajePrivado(
     @MessageBody() data: { emisorId: string; receptorId: string; contenido: string; ubicacion?: any },
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      const mensajeParaEmitir = {
-        id: Date.now(), 
-        emisorId: data.emisorId,
-        receptorId: data.receptorId,
-        contenido: data.contenido,
-        ubicacion: data.ubicacion,
-        fechaEnvio: new Date(),
-        leidoAt: null
-      };
+      // 1. Guardar en Base de Datos (Esto dispara la validación de 500 caracteres)
+      const mensajeGuardado = await this.mensajeService.enviarMensajePrivado(
+        data.emisorId, 
+        data.receptorId, 
+        data.contenido,
+        data.ubicacion
+      );
 
+      // 2. Transmitir en tiempo real al destinatario (CA-4)
       const roomDestinatario = `user_${data.receptorId}`;
-      this.server.to(roomDestinatario).emit('recibirMensajePrivado', mensajeParaEmitir);
+      this.server.to(roomDestinatario).emit('recibirMensajePrivado', mensajeGuardado);
 
-      console.log(`💬 Mensaje privado enviado de ${data.emisorId} a ${data.receptorId}`);
+      // 3. Devolver al emisor para que se actualice su bandeja al instante
+      client.emit('recibirMensajePrivado', mensajeGuardado);
+
+      console.log(`💬 DB Guardado: Mensaje privado de ${data.emisorId} a ${data.receptorId}`);
     } catch (error) {
-      console.error('Error procesando mensaje privado en el gateway:', error);
-      client.emit('errorChat', { mensaje: 'No se pudo enviar el mensaje privado.' });
+      console.error('Error procesando mensaje privado:', error.message);
+      // Notificamos al frontend si violó la regla de los 500 caracteres
+      client.emit('errorChat', { mensaje: error.message || 'No se pudo enviar el mensaje.' });
     }
   }
 

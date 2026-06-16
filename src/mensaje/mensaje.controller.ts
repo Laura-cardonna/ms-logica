@@ -19,4 +19,14 @@ export class MensajeController {
   ) {
     return this.mensajeService.obtenerMensajesPorGrupo(grupoId, personaId);
   }
+
+  // ✨ NUEVO: Exponer Historial 1 a 1 (CA-5)
+  // ==========================================
+  @Get('privado/:emisorId/:receptorId')
+  obtenerHistorialPrivado(
+    @Param('emisorId') emisorId: string,
+    @Param('receptorId') receptorId: string,
+  ) {
+    return this.mensajeService.obtenerHistorialPrivado(emisorId, receptorId);
+  }
 }

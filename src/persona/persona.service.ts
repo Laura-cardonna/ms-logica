@@ -13,14 +13,29 @@ export class PersonaService {
   ) {}
 
   // Verifica que el nombre sea "buscar"
-async buscar(query: string, excluirId?: string): Promise<Persona[]> {
+async buscar(query: string, excluirId?: string, rolAutenticado?: string): Promise<Persona[]> {
     const qb = this.personaRepository.createQueryBuilder('persona');
-    qb.where('(persona.nombre LIKE :q OR persona.email LIKE :q)', { q: `%${query}%` });
+    
+    // Búsqueda por coincidencia en email o nombre
+    qb.where('(persona.nombre ILIKE :q OR persona.email ILIKE :q)', { q: `%${query}%` });
+    
     if (excluirId) {
         qb.andWhere('persona.id != :excluirId', { excluirId });
     }
+
+    // 🛡️ Seguridad por Roles (CA-1)
+    if (rolAutenticado) {
+      if (rolAutenticado.toLowerCase() === 'ciudadano') {
+        // Un ciudadano solo ve al equipo de operaciones y su conductor
+        qb.andWhere("persona.rol IN ('soporte', 'conductor')");
+      } else if (rolAutenticado.toLowerCase() === 'conductor') {
+        // El conductor puede hablar con la administración y otros conductores
+        qb.andWhere("persona.rol IN ('soporte', 'supervisor', 'conductor')");
+      }
+    }
+
     return await qb.take(10).getMany();
-}
+  }
 
   create(createPersonaDto: CreatePersonaDto) {
     const nuevaPersona = this.personaRepository.create(createPersonaDto);

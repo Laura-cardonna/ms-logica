@@ -8,13 +8,13 @@ export class Mensaje {
     @PrimaryGeneratedColumn()
     id?: number;
 
-    @Column()
+    // ✅ CORRECCIÓN 1: El paréntesis ya está abierto correctamente
+    @Column({ length: 500 })
     contenido?: string;
 
     @Column({ name: 'fecha_envio', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     fechaEnvio?: Date;
 
-    // 👇 NUEVO CAMPO AÑADIDO DE FORMA SEGURA 👇
     @Column({ type: 'timestamp', nullable: true })
     leidoAt?: Date;
 
@@ -27,4 +27,12 @@ export class Mensaje {
 
     @OneToMany(() => DestinatarioGrupo, (dg) => dg.mensaje, { cascade: true })
     destinatariosGrupo?: DestinatarioGrupo[];
+
+    @ManyToOne(() => Persona, { nullable: true })
+    @JoinColumn({ name: 'receptorId' })
+    receptor: Persona;
+
+    // ✅ CORRECCIÓN 2: Le quité la "ñ" al final
+    @Column({ nullable: true, type: 'text' })
+    ubicacion: string;
 }
