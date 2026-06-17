@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Mensaje } from './entities/mensaje.entity';
 import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
 import { Persona } from 'src/persona/entities/persona.entity';
@@ -35,10 +35,10 @@ export class MensajeService {
 
     const nuevoMensaje = this.mensajeRepository.create({
       contenido,
-      emisor: { id: emisorId } as Persona, 
+      emisor: { id: emisorId } as Persona,
       receptor: { id: receptorId } as Persona,
       // ✅ CORRECCIÓN FINAL: Cambiamos null por undefined para que TypeScript esté feliz
-      ubicacion: ubicacion ? JSON.stringify(ubicacion) : undefined, 
+      ubicacion: ubicacion ? JSON.stringify(ubicacion) : undefined,
       fechaEnvio: new Date()
     });
 
@@ -120,7 +120,7 @@ export class MensajeService {
     const relaciones = await this.destGrupoRepository.find({
       where: { grupo: { id: grupoId } },
       relations: ['mensaje', 'mensaje.emisor'],
-      order: { mensaje: { fechaEnvio: 'ASC' } }, 
+      order: { mensaje: { fechaEnvio: 'ASC' } },
     });
 
     // Mapeamos los mensajes iniciales
@@ -156,7 +156,7 @@ export class MensajeService {
         }
 
         console.log(`[Paso 2] ✅ Log encontrado. Fecha de salida: ${ultimoLogSalida.fecha}`);
-        const fechaSalida = ultimoLogSalida.fecha ? new Date(ultimoLogSalida.fecha).getTime() : 0;        
+        const fechaSalida = ultimoLogSalida.fecha ? new Date(ultimoLogSalida.fecha).getTime() : 0;
 
         const mensajesFiltrados = todosLosMensajes.filter(msg => {
           if (!msg.fechaEnvio) return false;
@@ -199,5 +199,148 @@ export class MensajeService {
     }
 
     return todosLosMensajes;
+  }
+
+  // =========================================================================
+  // ✨ OPTIMIZADO Y CORREGIDO: HU-ENTR-3-007 - Obtener Bandeja de Entrada con Filtros
+  // =========================================================================
+  async obtenerBandejaEntrada(
+    personaId: string,
+    filtros: { tipo?: 'individual' | 'grupal'; estado?: 'leidos' | 'no_leidos'; fecha?: string }
+  ) {
+    // 1. Obtener los IDs de los grupos a los que pertenece el usuario
+    const misGruposMembresias = await this.grupoPersonaRepository.find({
+      where: { persona: { id: personaId } },
+      relations: ['grupo']
+    });
+    
+    // Filtrar roles que no tengan acceso (ej. bloqueados)
+    const misGruposIds = misGruposMembresias
+      .filter(m => m.rol !== 'bloqueado')
+      .map(m => m.grupo?.id)
+      .filter((id): id is number => !!id);
+
+    let mensajesDirectos: any[] = [];
+    let mensajesGrupales: any[] = [];
+
+    // 2. CONSULTA 1-A-1 (Si no se filtró estrictamente por 'grupal')
+    if (!filtros.tipo || filtros.tipo === 'individual') {
+      const directos = await this.mensajeRepository.find({
+        where: { receptor: { id: personaId } },
+        relations: ['emisor'],
+        order: { fechaEnvio: 'DESC' }
+      });
+
+     // En la sección de mensajes directos (Paso 2):
+mensajesDirectos = directos.map(msg => ({
+  id: msg.id,
+  tipo: 'individual',
+  emisor: msg.emisor?.nombre || 'Usuario Desconocido',
+  emisorId: msg.emisor?.id, // 👈 ASEGÚRATE DE AGREGAR ESTA LÍNEA
+  fechaEnvio: msg.fechaEnvio,
+  preview: msg.contenido ? msg.contenido.substring(0, 60) : '',
+  contenidoCompleto: msg.contenido,
+  leido: !!msg.leidoAt,
+  grupoId: null,
+  grupoNombre: null
+}));
+    }
+
+    // 3. CONSULTA GRUPAL (Si no se filtró estrictamente por 'individual' y tiene grupos)
+    if ((!filtros.tipo || filtros.tipo === 'grupal') && misGruposIds.length > 0) {
+      // 🚨 CORRECCIÓN: Se añade 'mensaje.emisor' a las relaciones para poder filtrar tus mensajes enviados
+      const relacionesGrupo = await this.destGrupoRepository.find({
+        where: misGruposIds.map(gId => ({ grupo: { id: gId } })),
+        relations: ['mensaje', 'mensaje.emisor', 'grupo'],
+        order: { mensaje: { fechaEnvio: 'DESC' } }
+      });
+
+     mensajesGrupales = relacionesGrupo
+  .filter(rel => rel.mensaje && rel.mensaje.emisor?.id !== personaId)
+  .map(rel => {
+    const msg = rel.mensaje!;
+    return {
+      id: msg.id,
+      tipo: 'grupal',
+      emisor: msg.emisor?.nombre || 'Usuario del Grupo',
+      emisorId: msg.emisor?.id, // 👈 ASEGÚRATE DE AGREGAR ESTA LÍNEA
+      fechaEnvio: msg.fechaEnvio,
+      preview: msg.contenido ? msg.contenido.substring(0, 60) : '',
+      contenidoCompleto: msg.contenido,
+      leido: !!msg.leidoAt, 
+      grupoId: rel.grupo?.id,
+      grupoNombre: rel.grupo?.nombre || 'Grupo'
+    };
+  });
+    }
+
+    // 4. UNIFICAR Y APLICAR FILTROS EN MEMORIA
+    let bandejaTotal = [...mensajesDirectos, ...mensajesGrupales];
+
+    // Filtro por Estado (Leídos / No Leídos)
+    if (filtros.estado) {
+      if (filtros.estado === 'no_leidos') {
+        bandejaTotal = bandejaTotal.filter(m => !m.leido);
+      } else if (filtros.estado === 'leidos') {
+        bandejaTotal = bandejaTotal.filter(m => m.leido);
+      }
+    }
+
+    // Filtro por Fecha (Formato esperado: YYYY-MM-DD)
+    if (filtros.fecha) {
+      const fechaFiltro = new Date(filtros.fecha).toDateString();
+      bandejaTotal = bandejaTotal.filter(m =>
+        m.fechaEnvio ? new Date(m.fechaEnvio).toDateString() === fechaFiltro : false
+      );
+    }
+
+    // Ordenar de más reciente a más antiguo globalmente
+    bandejaTotal.sort((a, b) => {
+      return new Date(b.fechaEnvio).getTime() - new Date(a.fechaEnvio).getTime();
+    });
+
+    // 5. CALCULAR CONTADOR TOTAL DE NO LEÍDOS PARA EL ICONO
+    // Directos (1 a 1) reales asignados a mí y sin leer
+    const directosNoLeidos = await this.mensajeRepository.count({
+      where: { receptor: { id: personaId }, leidoAt: IsNull() }
+    });
+
+    let grupalesNoLeidos = 0;
+    if (misGruposIds.length > 0) {
+      const relGrupalesNoLeidos = await this.destGrupoRepository.find({
+        where: misGruposIds.map(gId => ({ grupo: { id: gId } })),
+        relations: ['mensaje', 'mensaje.emisor']
+      });
+
+      const mensajesUnicosContados = new Set<number>();
+
+      relGrupalesNoLeidos.forEach(rel => {
+        if (
+          rel.mensaje &&
+          rel.mensaje.id &&
+          !rel.mensaje.leidoAt &&
+          rel.mensaje.emisor?.id !== personaId &&
+          !mensajesUnicosContados.has(rel.mensaje.id)
+        ) {
+          // 🚨 FILTRO COMPLEMENTARIO DE SEGURIDAD INTERNA
+          // Si el mensaje es más viejo que 24 horas y no coincide con un flujo activo,
+          // mitigamos el ruido del flag global compartido para evitar contadores fantasmas estáticos.
+          const limiteFantasma = new Date();
+          limiteFantasma.setHours(limiteFantasma.getHours() - 24);
+          const fechaMsg = rel.mensaje.fechaEnvio ? new Date(rel.mensaje.fechaEnvio) : new Date();
+
+          if (fechaMsg >= limiteFantasma) {
+            mensajesUnicosContados.add(rel.mensaje.id);
+          }
+        }
+      });
+
+      grupalesNoLeidos = mensajesUnicosContados.size;
+    }
+
+    return {
+      mensajes: bandejaTotal,
+      contadorNoLeidos: directosNoLeidos + grupalesNoLeidos
+    };
   }
 }

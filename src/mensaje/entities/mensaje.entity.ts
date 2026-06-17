@@ -30,9 +30,9 @@ export class Mensaje {
 
     @ManyToOne(() => Persona, { nullable: true })
     @JoinColumn({ name: 'receptorId' })
-    receptor: Persona;
+    receptor?: Persona;
 
     // ✅ CORRECCIÓN 2: Le quité la "ñ" al final
     @Column({ nullable: true, type: 'text' })
-    ubicacion: string;
+    ubicacion?: string;
 }
