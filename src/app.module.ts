@@ -34,6 +34,7 @@ import { GrupoPersonaModule } from './grupo_persona/grupo_persona.module';
 import { ReportesModule } from './reportes/reportes.module';
 import { MonitoreoModule } from './monitoreo/monitoreo.module';
 import { NotificacionModule } from './notificacion/notificacion.module';
+import { NotificacionSuscripcionModule } from './notificacion-suscripcion/notificacion-suscripcion.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { NotificacionModule } from './notificacion/notificacion.module';
     ReportesModule,
     MonitoreoModule,
     NotificacionModule,
+    NotificacionSuscripcionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

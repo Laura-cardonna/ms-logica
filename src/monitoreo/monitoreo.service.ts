@@ -11,6 +11,8 @@ import { Paradero } from '../paradero/entities/paradero.entity';
 import { Programacion, EstadoProgramacion } from '../programacion/entities/programacion.entity';
 import { Boleto } from '../boleto/entities/boleto.entity';
 import { Incidente } from '../incidente/entities/incidente.entity';
+import { NotificacionSuscripcion } from '../notificacion-suscripcion/entities/notificacion-suscripcion.entity';
+import { NotificacionService } from '../notificacion/notificacion.service';
 import { MonitoreoGateway } from './monitore.gateway';
 
 @Injectable()
@@ -32,7 +34,10 @@ export class MonitoreoService {
     private boletoRepo: Repository<Boleto>,
     @InjectRepository(Incidente)
     private incidentePadreRepo: Repository<Incidente>,
+    @InjectRepository(NotificacionSuscripcion)
+    private suscripcionRepo: Repository<NotificacionSuscripcion>,
     private httpService: HttpService,
+    private readonly notificacionService: NotificacionService,
     private readonly monitoreoGateway: MonitoreoGateway,
   ) {}
 
@@ -44,8 +49,10 @@ export class MonitoreoService {
     if (!bus) throw new NotFoundException('Bus no encontrado');
 
     // 1. Buscamos la programación que está actualmente en curso para este bus
+    //    (con la ruta, para filtrar las suscripciones de proximidad por ruta).
     const programacionActiva = await this.programacionRepo.findOne({
       where: { bus: { id: busId }, estado: EstadoProgramacion.EN_CURSO } as any,
+      relations: ['ruta'],
       order: { fechaCreacion: 'DESC' } as any,
     });
 
@@ -103,7 +110,71 @@ export class MonitoreoService {
       await this.enviarAlertaRetraso(bus.placa ?? '', retraso.minutosRetraso);
     }
 
+    // HU-ENTR-3-003: tras guardar la posición, avisamos a los ciudadanos suscritos
+    // de esta ruta cuyo paradero ya está dentro de su ventana de anticipación.
+    if (programacionActiva?.ruta?.id != null) {
+      await this.notificarBusProximo(bus, programacionActiva.ruta.id);
+    }
+
     return { success: true, estado };
+  }
+
+  /**
+   * 🔔 HU-ENTR-3-003: Job de proximidad. Se dispara en cada POST de GPS.
+   * Filtra las suscripciones ACTIVAS de la ruta del bus (no recorre todas) y,
+   * por cada una, reusa getEtaParaParadero para decidir el disparo. Anti-spam
+   * con notificadaEn: notifica una vez por acercamiento y se resetea al alejarse.
+   */
+  private async notificarBusProximo(bus: Bus, rutaId: number) {
+    const suscripciones = await this.suscripcionRepo.find({
+      where: { ruta: { id: rutaId }, estado: 'activa' } as any,
+      relations: ['persona', 'paradero', 'ruta'],
+    });
+    if (!suscripciones.length) return;
+
+    for (const sub of suscripciones) {
+      const personaId = sub.persona?.id;
+      const paraderoId = sub.paradero?.id;
+      const umbral = sub.minutosAnticipacion;
+      if (personaId == null || paraderoId == null || umbral == null) continue;
+
+      let etaMinutos: number;
+      try {
+        ({ etaMinutos } = await this.getEtaParaParadero(bus.id as number, paraderoId));
+      } catch {
+        continue; // sin ubicación reciente del bus aún; lo reintenta el próximo tick
+      }
+
+      const dentroDeVentana = etaMinutos <= umbral;
+      const yaNotificada = sub.notificadaEn != null;
+
+      if (dentroDeVentana && !yaNotificada) {
+        const rutaNombre = sub.ruta?.nombre ?? '';
+        const paraderoNombre = sub.paradero?.nombre ?? '';
+        const placa = bus.placa ?? '';
+
+        await this.notificacionService.crearNotificacion(
+          sub.persona as any,
+          'Tu bus está cerca',
+          `El bus ${placa} de la ruta ${rutaNombre} llega a ${paraderoNombre} en ~${etaMinutos} min.`,
+        );
+
+        this.monitoreoGateway.emitirAlertaBusProximo(personaId, {
+          rutaNombre,
+          etaMinutos,
+          placa,
+          busId: bus.id,
+          paraderoNombre,
+        });
+
+        sub.notificadaEn = new Date();
+        await this.suscripcionRepo.save(sub);
+      } else if (!dentroDeVentana && yaNotificada) {
+        // El bus se alejó: reseteamos para que sirva en el próximo acercamiento/día.
+        sub.notificadaEn = null;
+        await this.suscripcionRepo.save(sub);
+      }
+    }
   }
 
   // --- MÉTODOS REQUERIDOS POR EL CONTROLADOR ---

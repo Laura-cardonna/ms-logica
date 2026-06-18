@@ -1,8 +1,9 @@
-import { 
-  WebSocketGateway, 
-  WebSocketServer, 
-  SubscribeMessage, 
-  ConnectedSocket 
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
@@ -31,8 +32,27 @@ export class MonitoreoGateway {
   emitirActualizacionBus(busData: any) {
     // 1. Guardamos/Actualizamos el bus en nuestra memoria
     this.flotaActiva.set(busData.busId, busData);
-    
+
     // 2. Emitimos TODA la flota actualizada a los supervisores
     this.server.to('sala_supervisores').emit('actualizacionFlotaGlobal', Array.from(this.flotaActiva.values()));
+  }
+
+  // HU-ENTR-3-003: el ciudadano se une a su sala personal para recibir alertas
+  // dirigidas (bus próximo). Sin esto, el socket solo entra a 'user_*' vía grupos.
+  @SubscribeMessage('identificarUsuario')
+  handleIdentificarUsuario(
+    @MessageBody() data: { personaId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (data?.personaId) {
+      client.join(`user_${data.personaId}`);
+      console.log(`Usuario ${data.personaId} (socket ${client.id}) unido a su sala personal.`);
+    }
+  }
+
+  // HU-ENTR-3-003: alerta de bus próximo dirigida a un ciudadano concreto.
+  // Evento EXACTO 'alertaBusProximo' (lo escucha escucharAlertaBus() en el front).
+  emitirAlertaBusProximo(personaId: string, payload: any) {
+    this.server.to(`user_${personaId}`).emit('alertaBusProximo', payload);
   }
 }

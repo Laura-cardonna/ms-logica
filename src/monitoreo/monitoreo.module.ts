@@ -13,6 +13,8 @@ import { GpsSimuladorService } from './gps-simulador.service'; // HU-3-002: GPS 
 import { IncidenteBus } from '../incidente_bus/entities/incidente_bus.entity'; // 👈 1. IMPORTACIÓN CORREGIDA: Ajusta la ruta relativa exacta según tu árbol de directorios
 import { Boleto } from '../boleto/entities/boleto.entity'; // HU-3-002: pasajeros en tránsito
 import { Incidente } from '../incidente/entities/incidente.entity'; // HU-3-002: estado de resolución del incidente
+import { NotificacionSuscripcion } from '../notificacion-suscripcion/entities/notificacion-suscripcion.entity'; // HU-3-003: suscripciones de bus próximo
+import { NotificacionModule } from '../notificacion/notificacion.module'; // HU-3-003: crearNotificacion (badge in-app)
 
 @Module({
   imports: [
@@ -26,8 +28,10 @@ import { Incidente } from '../incidente/entities/incidente.entity'; // HU-3-002:
       IncidenteBus, // 👈 SOLUCIÓN: Agregado a la base de datos del módulo de monitoreo
       Boleto,       // HU-3-002: conteo de pasajeros en tránsito y ocupación
       Incidente,    // HU-3-002: filtra incidentes no resueltos por estado del padre
+      NotificacionSuscripcion, // HU-3-003: job de proximidad
     ]),
     HttpModule,
+    NotificacionModule, // HU-3-003: inyecta NotificacionService (sin circular dep)
   ],
   controllers: [MonitoreoController],
   providers: [MonitoreoService, MonitoreoGateway, GpsSimuladorService],

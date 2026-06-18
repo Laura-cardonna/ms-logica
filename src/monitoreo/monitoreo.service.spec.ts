@@ -11,6 +11,8 @@ import { Programacion, EstadoProgramacion } from '../programacion/entities/progr
 import { IncidenteBus } from '../incidente_bus/entities/incidente_bus.entity';
 import { Boleto } from '../boleto/entities/boleto.entity';
 import { Incidente } from '../incidente/entities/incidente.entity';
+import { NotificacionSuscripcion } from '../notificacion-suscripcion/entities/notificacion-suscripcion.entity';
+import { NotificacionService } from '../notificacion/notificacion.service';
 
 const repoMock = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), count: jest.fn() });
 
@@ -35,8 +37,10 @@ describe('MonitoreoService', () => {
         { provide: getRepositoryToken(IncidenteBus), useFactory: repoMock },
         { provide: getRepositoryToken(Boleto), useFactory: repoMock },
         { provide: getRepositoryToken(Incidente), useFactory: repoMock },
+        { provide: getRepositoryToken(NotificacionSuscripcion), useFactory: repoMock },
+        { provide: NotificacionService, useValue: { crearNotificacion: jest.fn() } },
         { provide: HttpService, useValue: { post: jest.fn() } },
-        { provide: MonitoreoGateway, useValue: { emitirActualizacionBus: jest.fn() } },
+        { provide: MonitoreoGateway, useValue: { emitirActualizacionBus: jest.fn(), emitirAlertaBusProximo: jest.fn() } },
       ],
     }).compile();
 
