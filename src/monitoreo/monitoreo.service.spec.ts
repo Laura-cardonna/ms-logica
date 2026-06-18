@@ -9,8 +9,10 @@ import { Ruta } from '../ruta/entities/ruta.entity';
 import { Paradero } from '../paradero/entities/paradero.entity';
 import { Programacion, EstadoProgramacion } from '../programacion/entities/programacion.entity';
 import { IncidenteBus } from '../incidente_bus/entities/incidente_bus.entity';
+import { Boleto } from '../boleto/entities/boleto.entity';
+import { Incidente } from '../incidente/entities/incidente.entity';
 
-const repoMock = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn() });
+const repoMock = () => ({ find: jest.fn(), findOne: jest.fn(), create: jest.fn(), save: jest.fn(), count: jest.fn() });
 
 describe('MonitoreoService', () => {
   let service: MonitoreoService;
@@ -18,6 +20,8 @@ describe('MonitoreoService', () => {
   let paraderoRepo: any;
   let programacionRepo: any;
   let ubicacionRepo: any;
+  let boletoRepo: any;
+  let incidenteBusRepo: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -29,6 +33,8 @@ describe('MonitoreoService', () => {
         { provide: getRepositoryToken(Paradero), useFactory: repoMock },
         { provide: getRepositoryToken(Programacion), useFactory: repoMock },
         { provide: getRepositoryToken(IncidenteBus), useFactory: repoMock },
+        { provide: getRepositoryToken(Boleto), useFactory: repoMock },
+        { provide: getRepositoryToken(Incidente), useFactory: repoMock },
         { provide: HttpService, useValue: { post: jest.fn() } },
         { provide: MonitoreoGateway, useValue: { emitirActualizacionBus: jest.fn() } },
       ],
@@ -39,6 +45,8 @@ describe('MonitoreoService', () => {
     paraderoRepo = module.get(getRepositoryToken(Paradero));
     programacionRepo = module.get(getRepositoryToken(Programacion));
     ubicacionRepo = module.get(getRepositoryToken(UbicacionBus));
+    boletoRepo = module.get(getRepositoryToken(Boleto));
+    incidenteBusRepo = module.get(getRepositoryToken(IncidenteBus));
   });
 
   describe('Haversine', () => {
@@ -130,6 +138,88 @@ describe('MonitoreoService', () => {
       const r = (service as any).calcularRetraso(prog);
       expect(Number.isNaN(r.minutosRetraso)).toBe(false);
       expect(r.estaRetrasado).toBe(true);
+    });
+  });
+
+  // ============================================================
+  // 📊 HU-3-002: Panel de control
+  // ============================================================
+
+  describe('getTotalPasajerosEnTransito', () => {
+    it('suma boletos activos sobre varias programaciones EN_CURSO', async () => {
+      programacionRepo.find.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      boletoRepo.count
+        .mockResolvedValueOnce(5)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(8);
+
+      const total = await service.getTotalPasajerosEnTransito();
+      expect(total).toBe(13);
+      expect(boletoRepo.count).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('getAlertasOcupacion', () => {
+    it('bus en el límite de capacidadMaxima → alerta; debajo → no', async () => {
+      programacionRepo.find.mockResolvedValue([
+        { id: 1, bus: { id: 10, placa: 'AAA-111', capacidadMaxima: 20 } }, // lleno
+        { id: 2, bus: { id: 11, placa: 'BBB-222', capacidadMaxima: 30 } }, // debajo
+        { id: 3, bus: { id: 12, placa: 'CCC-333', capacidadMaxima: null } }, // sin capacidad
+      ]);
+      boletoRepo.count
+        .mockResolvedValueOnce(20) // = capacidad → alerta
+        .mockResolvedValueOnce(10); // < capacidad → no (la 3ra se descarta antes de contar)
+
+      const alertas = await service.getAlertasOcupacion();
+      expect(alertas).toHaveLength(1);
+      expect(alertas[0]).toMatchObject({ busId: 10, pasajeros: 20, capacidad: 20 });
+    });
+  });
+
+  describe('getIncidentesActivos', () => {
+    it('excluye incidentes con padre resuelto; sin padre → estado pendiente', async () => {
+      incidenteBusRepo.find.mockResolvedValue([
+        { id: 1, bus: { id: 10, placa: 'AAA-111' }, descripcion: 'falla', gravedad: 'alto', timestamp: new Date(), incidente: { estado: 'en_revision' } },
+        { id: 2, bus: { id: 11, placa: 'BBB-222' }, descripcion: 'choque', gravedad: 'critico', timestamp: new Date(), incidente: { estado: 'resuelto' } },
+        { id: 3, bus: { id: 12, placa: 'CCC-333' }, descripcion: 'otro', gravedad: 'bajo', timestamp: new Date(), incidente: null },
+      ]);
+
+      const activos = await service.getIncidentesActivos();
+      expect(activos).toHaveLength(2);
+      expect(activos.find((i) => i.id === 2)).toBeUndefined();
+      expect(activos.find((i) => i.id === 3)!.estado).toBe('pendiente');
+    });
+  });
+
+  describe('getDashboard', () => {
+    it('ensambla totales coherentes (incidentesActivos = incidentes.length)', async () => {
+      // 1ª llamada: getDashboard (busesOperando) → 2 buses, ambos con ubicación.
+      // 2ª llamada: getTotalPasajerosEnTransito. 3ª: getAlertasOcupacion.
+      programacionRepo.find
+        .mockResolvedValueOnce([
+          { id: 1, bus: { id: 10 } },
+          { id: 2, bus: { id: 11 } },
+        ])
+        .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+        .mockResolvedValueOnce([
+          { id: 1, bus: { id: 10, placa: 'AAA-111', capacidadMaxima: 20 } },
+        ]);
+      ubicacionRepo.findOne.mockResolvedValue({ id: 'u1' }); // toda última ubicación existe
+      boletoRepo.count
+        .mockResolvedValueOnce(4) // pasajeros prog 1
+        .mockResolvedValueOnce(6) // pasajeros prog 2
+        .mockResolvedValueOnce(25); // ocupación prog 1 → alerta (>=20)
+      incidenteBusRepo.find.mockResolvedValue([
+        { id: 1, bus: { id: 10, placa: 'AAA-111' }, gravedad: 'alto', timestamp: new Date(), incidente: null },
+      ]);
+
+      const dash = await service.getDashboard();
+      expect(dash.busesOperando).toBe(2);
+      expect(dash.totalActivos).toBe(2);
+      expect(dash.pasajerosEnTransito).toBe(10);
+      expect(dash.incidentesActivos).toBe(1);
+      expect(dash.incidentes).toHaveLength(1);
+      expect(dash.alertasOcupacion).toBe(1);
     });
   });
 });

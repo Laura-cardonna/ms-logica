@@ -9,6 +9,8 @@ import { Ruta } from '../ruta/entities/ruta.entity';
 import { IncidenteBus } from 'src/incidente_bus/entities/incidente_bus.entity';
 import { Paradero } from '../paradero/entities/paradero.entity';
 import { Programacion, EstadoProgramacion } from '../programacion/entities/programacion.entity';
+import { Boleto } from '../boleto/entities/boleto.entity';
+import { Incidente } from '../incidente/entities/incidente.entity';
 import { MonitoreoGateway } from './monitore.gateway';
 
 @Injectable()
@@ -25,7 +27,11 @@ export class MonitoreoService {
     @InjectRepository(Programacion)
     private programacionRepo: Repository<Programacion>,
     @InjectRepository(IncidenteBus)
-    private incidenteRepo: Repository<IncidenteBus>,    
+    private incidenteRepo: Repository<IncidenteBus>,
+    @InjectRepository(Boleto)
+    private boletoRepo: Repository<Boleto>,
+    @InjectRepository(Incidente)
+    private incidentePadreRepo: Repository<Incidente>,
     private httpService: HttpService,
     private readonly monitoreoGateway: MonitoreoGateway,
   ) {}
@@ -69,6 +75,12 @@ export class MonitoreoService {
     } as any);
     await this.ubicacionRepo.save(ubicacion);
 
+    // HU-3-002: enriquecer el payload del socket para que el mapa del supervisor
+    // pueda pintar el marcador naranja de ocupación máxima en tiempo real.
+    const pasajerosCalculados = programacionActiva?.id != null
+      ? await this.contarBoletosActivos(programacionActiva.id)
+      : 0;
+
     this.monitoreoGateway.emitirActualizacionBus({
       busId,
       placa: bus.placa,
@@ -76,6 +88,8 @@ export class MonitoreoService {
       longitud: longitude,
       velocidad,
       estado,
+      pasajerosCalculados,
+      capacidadMaxima: bus.capacidadMaxima ?? null,
       timestamp: new Date()
     });
 
@@ -153,6 +167,124 @@ export class MonitoreoService {
     }
 
     return resultado;
+  }
+
+  // ============================================================
+  // 📊 HU-3-002: Panel de control en tiempo real (supervisor)
+  // ============================================================
+
+  /** Cuenta boletos a bordo ('activo') de una programación. */
+  private async contarBoletosActivos(programacionId: number): Promise<number> {
+    return this.boletoRepo.count({
+      where: { estado: 'activo', programacion: { id: programacionId } as any },
+    });
+  }
+
+  /**
+   * 👥 Total de pasajeros en tránsito: boletos 'activo' de todas las
+   * programaciones EN_CURSO.
+   */
+  async getTotalPasajerosEnTransito(): Promise<number> {
+    const activas = await this.programacionRepo.find({
+      where: { estado: EstadoProgramacion.EN_CURSO } as any,
+    });
+    let total = 0;
+    for (const prog of activas) {
+      if (prog.id != null) total += await this.contarBoletosActivos(prog.id);
+    }
+    return total;
+  }
+
+  /**
+   * 🟧 Alertas de ocupación: por programación EN_CURSO, compara boletos activos
+   * vs bus.capacidadMaxima. Devuelve solo los buses que alcanzan/superan el máximo.
+   */
+  async getAlertasOcupacion(): Promise<
+    { busId: number; placa?: string; pasajeros: number; capacidad: number }[]
+  > {
+    const activas = await this.programacionRepo.find({
+      where: { estado: EstadoProgramacion.EN_CURSO } as any,
+      relations: ['bus'],
+    });
+    const alertas: { busId: number; placa?: string; pasajeros: number; capacidad: number }[] = [];
+    for (const prog of activas) {
+      const bus = prog.bus;
+      const capacidad = Number(bus?.capacidadMaxima ?? 0);
+      if (!bus?.id || capacidad <= 0 || prog.id == null) continue;
+      const pasajeros = await this.contarBoletosActivos(prog.id);
+      if (pasajeros >= capacidad) {
+        alertas.push({ busId: bus.id, placa: bus.placa, pasajeros, capacidad });
+      }
+    }
+    return alertas;
+  }
+
+  /**
+   * 🚨 Incidentes activos no resueltos: incidente_bus ligados a una programación
+   * EN_CURSO cuyo Incidente padre no esté 'resuelto' (si no hay padre → 'pendiente').
+   */
+  async getIncidentesActivos(): Promise<
+    {
+      id?: number;
+      busId?: number;
+      placa?: string;
+      descripcion?: string;
+      gravedad?: string;
+      estado: string;
+      fecha?: Date;
+    }[]
+  > {
+    const incidentes = await this.incidenteRepo.find({
+      where: { programacion: { estado: EstadoProgramacion.EN_CURSO } as any } as any,
+      relations: ['bus', 'programacion', 'incidente'],
+      order: { timestamp: 'DESC' } as any,
+    });
+
+    return incidentes
+      .map((inc) => ({
+        id: inc.id,
+        busId: inc.bus?.id,
+        placa: inc.bus?.placa,
+        descripcion: inc.descripcion,
+        gravedad: inc.gravedad,
+        estado: inc.incidente?.estado ?? 'pendiente',
+        fecha: inc.timestamp,
+      }))
+      .filter((inc) => inc.estado !== 'resuelto');
+  }
+
+  /**
+   * 🧮 Ensambla el panel de control. Mapa = socket; este endpoint = KPIs (polling 30s).
+   */
+  async getDashboard() {
+    const activas = await this.programacionRepo.find({
+      where: { estado: EstadoProgramacion.EN_CURSO } as any,
+      relations: ['bus'],
+    });
+
+    // Buses operando = buses distintos EN_CURSO con última ubicación registrada.
+    const busesVistos = new Set<number>();
+    let busesOperando = 0;
+    for (const prog of activas) {
+      const busId = prog.bus?.id;
+      if (!busId || busesVistos.has(busId)) continue;
+      busesVistos.add(busId);
+      const ultima = await this.ultimaUbicacionDeBus(busId);
+      if (ultima) busesOperando++;
+    }
+
+    const pasajerosEnTransito = await this.getTotalPasajerosEnTransito();
+    const incidentes = await this.getIncidentesActivos();
+    const alertasOcupacion = (await this.getAlertasOcupacion()).length;
+
+    return {
+      pasajerosEnTransito,
+      busesOperando,
+      totalActivos: busesOperando, // alias de compatibilidad con el modelo del front
+      incidentes,
+      incidentesActivos: incidentes.length,
+      alertasOcupacion,
+    };
   }
 
   /** Última posición registrada de un bus (un row por update, ordenado por timestamp DESC). */

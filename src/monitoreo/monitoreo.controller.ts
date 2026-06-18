@@ -24,6 +24,12 @@ export class MonitoreoController {
     );
   }
 
+  @Get('dashboard')
+  @ApiOperation({ summary: 'Panel de control de flota en tiempo real (supervisor)' })
+  getDashboard() {
+    return this.monitoreoService.getDashboard();
+  }
+
   @Get('ruta/:rutaId/buses-activos')
   @ApiOperation({ summary: 'Obtener buses activos de una ruta' })
   getBusesActivos(@Param('rutaId') rutaId: string) {
