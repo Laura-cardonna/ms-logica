@@ -24,5 +24,6 @@ import { Turno } from 'src/turno/entities/turno.entity';
   ],
   controllers: [BoletoController],
   providers: [BoletoService],
+  exports: [BoletoService], // 🌟 REEMPLAZO: Agregamos esto para que MensajeModule lo pueda leer
 })
 export class BoletoModule {}

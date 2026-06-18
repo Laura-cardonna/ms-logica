@@ -530,4 +530,50 @@ async obtenerParaderosDescenso(boletoId: number) {
       },
     };
   }
+
+/**
+   * 🌟 HU-ENTR-3-008: Obtener la lista de Ciudadanos según el alcance configurado
+   */
+  async obtenerDestinatariosAlerta(alcanceTipo: string, alcanceId?: string): Promise<Ciudadano[]> {
+    if (alcanceTipo === 'TODOS') {
+      return await this.ciudadanoRepository.find();
+    }
+
+    if (alcanceTipo === 'RUTA' && alcanceId) {
+      const boletosActivos = await this.boletoRepository.find({
+        where: {
+          ruta: { id: Number(alcanceId) },
+          estado: 'activo'
+        },
+        relations: ['ciudadano']
+      });
+
+      const ciudadanosMapeados = boletosActivos
+        .map(b => b.ciudadano)
+        .filter((c): c is Ciudadano => !!c && c.id !== undefined); // Asegura que c y c.id no sean undefined
+
+      const deDuplicados = new Map<string | number, Ciudadano>();
+      ciudadanosMapeados.forEach(c => {
+        if (c.id !== undefined) {
+          deDuplicados.set(c.id, c);
+        }
+      });
+      return Array.from(deDuplicados.values());
+    }
+
+    if (alcanceTipo === 'ZONA' && alcanceId) {
+      return [];
+    }
+
+    return [];
+  }
+
+  /**
+   * 🌟 HU-ENTR-3-008: Contador previo de destinatarios para el Administrador
+   */
+  async contarDestinatariosAlerta(alcanceTipo: string, alcanceId?: string): Promise<{ total: number }> {
+    const destinatarios = await this.obtenerDestinatariosAlerta(alcanceTipo, alcanceId);
+    return { total: destinatarios.length };
+  }
+
 }

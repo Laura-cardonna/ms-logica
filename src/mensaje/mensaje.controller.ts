@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Body, Param, Query } from '@nestjs/common';
 import { MensajeService } from './mensaje.service';
+import { CreateAlertaMasivaDto } from './dto/create-alerta-masiva.dto';
 
 @Controller('mensajes')
 export class MensajeController {
@@ -46,6 +47,36 @@ export class MensajeController {
   @Post(':id/leer')
   async marcarMensajeLeido(@Param('id') id: number) {
     return this.mensajeService.marcarComoLeido(id);
+  }
+  
+  // =========================================================================
+  // ✨ NUEVO: HU-ENTR-3-008 - Obtener contador previo de destinatarios
+  // =========================================================================
+  @Get('alerta-masiva/contador')
+  obtenerContadorAlerta(
+    @Query('alcanceTipo') alcanceTipo: any,
+    @Query('alcanceId') alcanceId?: string,
+  ) {
+    return this.mensajeService.obtenerContadorDestinatarios(alcanceTipo, alcanceId);
+  }
+
+  // =========================================================================
+  // ✨ NUEVO: HU-ENTR-3-008 - Crear y enviar alerta masiva
+  // =========================================================================
+  @Post('alerta-masiva/enviar')
+  enviarAlertaMasiva(
+    @Query('adminId') adminId: string, // ID del Administrador que envía
+    @Body() body: CreateAlertaMasivaDto,
+  ) {
+    return this.mensajeService.enviarAlertaMasiva(adminId, body);
+  }
+
+  // =========================================================================
+  // ✨ NUEVO: HU-ENTR-3-008 - Visualizar estadísticas de entrega y lectura
+  // =========================================================================
+  @Get('alerta-masiva/:id/estadisticas')
+  obtenerEstadisticasAlerta(@Param('id') id: number) {
+    return this.mensajeService.obtenerEstadisticasAlerta(id);
   }
   
 }
