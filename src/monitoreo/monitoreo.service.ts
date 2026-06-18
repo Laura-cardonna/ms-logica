@@ -36,7 +36,7 @@ export class MonitoreoService {
     private readonly monitoreoGateway: MonitoreoGateway,
   ) {}
 
-  async actualizarUbicacion(busId: number, latitude: number, longitude: number, velocidad: number) {
+  async actualizarUbicacion(busId: number, latitude: number, longitude: number, velocidad: number, alertarRetraso = true) {
     const bus = await this.busRepo.findOne({
       where: { id: busId },
       relations: ['gps'],
@@ -99,7 +99,7 @@ export class MonitoreoService {
       bus.gps.lastUpdate = new Date();
     }
 
-    if (retraso.estaRetrasado) {
+    if (retraso.estaRetrasado && alertarRetraso) {
       await this.enviarAlertaRetraso(bus.placa ?? '', retraso.minutosRetraso);
     }
 

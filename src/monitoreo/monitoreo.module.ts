@@ -9,6 +9,7 @@ import { Ruta } from '../ruta/entities/ruta.entity';
 import { Paradero } from '../paradero/entities/paradero.entity';
 import { Programacion } from '../programacion/entities/programacion.entity';
 import { MonitoreoGateway } from './monitore.gateway';
+import { GpsSimuladorService } from './gps-simulador.service'; // HU-3-002: GPS simulado (flag GPS_SIMULADO)
 import { IncidenteBus } from '../incidente_bus/entities/incidente_bus.entity'; // 👈 1. IMPORTACIÓN CORREGIDA: Ajusta la ruta relativa exacta según tu árbol de directorios
 import { Boleto } from '../boleto/entities/boleto.entity'; // HU-3-002: pasajeros en tránsito
 import { Incidente } from '../incidente/entities/incidente.entity'; // HU-3-002: estado de resolución del incidente
@@ -29,7 +30,7 @@ import { Incidente } from '../incidente/entities/incidente.entity'; // HU-3-002:
     HttpModule,
   ],
   controllers: [MonitoreoController],
-  providers: [MonitoreoService, MonitoreoGateway], 
-  exports: [MonitoreoService, MonitoreoGateway], 
+  providers: [MonitoreoService, MonitoreoGateway, GpsSimuladorService],
+  exports: [MonitoreoService, MonitoreoGateway],
 })
 export class MonitoreoModule {}
