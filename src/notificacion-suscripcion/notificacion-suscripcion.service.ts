@@ -12,6 +12,30 @@ export class NotificacionSuscripcionService {
   ) {}
 
   async crear(personaId: string, dto: CreateNotificacionSuscripcionDto) {
+    // Dedupe: una sola suscripción activa por persona+ruta+paradero. Si ya existe,
+    // se reutiliza (idempotente) en vez de acumular filas con cada click de "Avisarme".
+    const existentes = await this.suscripcionRepo.find({
+      where: {
+        persona: { id: personaId },
+        ruta: { id: dto.rutaId },
+        paradero: { id: dto.paraderoId },
+        estado: 'activa',
+      } as any,
+      order: { fechaCreacion: 'ASC' },
+    });
+
+    if (existentes.length) {
+      const [canonica, ...duplicadas] = existentes;
+      // Colapsar cualquier duplicada previa (datos sucios de clicks anteriores).
+      for (const dup of duplicadas) {
+        dup.estado = 'inactiva';
+        await this.suscripcionRepo.save(dup);
+      }
+      canonica.minutosAnticipacion = dto.minutosAnticipacion;
+      canonica.notificadaEn = null; // reinicia el cooldown para el nuevo acercamiento
+      return await this.suscripcionRepo.save(canonica);
+    }
+
     const suscripcion = this.suscripcionRepo.create({
       persona: { id: personaId } as any,
       ruta: { id: dto.rutaId } as any,

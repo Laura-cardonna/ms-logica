@@ -80,9 +80,12 @@ describe('MonitoreoService — job de proximidad (HU-3-003)', () => {
     expect(gateway.emitirAlertaBusProximo).not.toHaveBeenCalled();
   });
 
-  it('ya notificada (notificadaEn set) y dentro de ventana → no reenvía', async () => {
-    suscripcionRepo.find.mockResolvedValue([nuevaSub({ notificadaEn: new Date() })]);
-    etaSpy.mockResolvedValue({ etaMinutos: 5 } as any);
+  it('notificada hace poco (dentro del cooldown) y ETA baja → no reenvía', async () => {
+    // notificadaEn = hace 2 min, cooldown default 10 → aún en cooldown
+    suscripcionRepo.find.mockResolvedValue([
+      nuevaSub({ notificadaEn: new Date(Date.now() - 2 * 60000) }),
+    ]);
+    etaSpy.mockResolvedValue({ etaMinutos: 3 } as any);
 
     await correrJob();
 
@@ -90,15 +93,17 @@ describe('MonitoreoService — job de proximidad (HU-3-003)', () => {
     expect(gateway.emitirAlertaBusProximo).not.toHaveBeenCalled();
   });
 
-  it('bus se aleja (ETA > umbral) y estaba notificada → resetea notificadaEn', async () => {
-    const sub = nuevaSub({ notificadaEn: new Date() });
+  it('pasado el cooldown y ETA baja → reenvía y re-marca notificadaEn', async () => {
+    // notificadaEn = hace 20 min, cooldown default 10 → ya puede reenviar
+    const sub = nuevaSub({ notificadaEn: new Date(Date.now() - 20 * 60000) });
     suscripcionRepo.find.mockResolvedValue([sub]);
-    etaSpy.mockResolvedValue({ etaMinutos: 18 } as any);
+    etaSpy.mockResolvedValue({ etaMinutos: 4 } as any);
 
     await correrJob();
 
-    expect(sub.notificadaEn).toBeNull();
-    expect(suscripcionRepo.save).toHaveBeenCalledWith(sub);
+    expect(gateway.emitirAlertaBusProximo).toHaveBeenCalledTimes(1);
+    expect(sub.notificadaEn).toBeInstanceOf(Date);
+    expect(sub.notificadaEn!.getTime()).toBeGreaterThan(Date.now() - 60000);
   });
 
   it('sin suscripciones → no consulta ETA', async () => {

@@ -101,6 +101,18 @@ describe('MonitoreoService', () => {
       expect(Number.isNaN(res.etaMinutos)).toBe(false);
       expect(res.etaMinutos).toBeGreaterThan(0);
     });
+
+    it('FIX 0: usa la ÚLTIMA ubicación, no bus.gps (semilla congelada)', async () => {
+      // gps sembrado LEJOS del paradero; última ubicación PEGADA al paradero.
+      busRepo.findOne.mockResolvedValue({ id: 1, gps: { latitude: 4.7016, longitude: -74.1469, velocidad: '30' } });
+      ubicacionRepo.findOne.mockResolvedValue({ latitude: 4.6300, longitude: -74.0900, velocidad: '30' });
+      paraderoRepo.findOne.mockResolvedValue({ id: 11, latitud: 4.6300, longitud: -74.0900 });
+
+      const res: any = await service.getEtaParaParadero(1, 11);
+      // Distancia ~0 (usó la última ubicación). Si usara bus.gps serían ~9 km.
+      expect(res.distanciaMetros).toBeLessThan(200);
+      expect(res.etaMinutos).toBeLessThanOrEqual(3);
+    });
   });
 
   describe('calcularRetraso', () => {

@@ -132,6 +132,11 @@ export class MonitoreoService {
     });
     if (!suscripciones.length) return;
 
+    // Anti-spam por cooldown: a lo sumo 1 alerta cada COOLDOWN_MIN por suscripción.
+    // Evita el bucle de re-notificación cuando la ETA simulada oscila alrededor del
+    // umbral (el simulador rebota el bus). Configurable por env.
+    const COOLDOWN_MIN = Number(process.env.NOTIF_PROXIMIDAD_COOLDOWN_MIN ?? 10);
+
     for (const sub of suscripciones) {
       const personaId = sub.persona?.id;
       const paraderoId = sub.paradero?.id;
@@ -146,34 +151,33 @@ export class MonitoreoService {
       }
 
       const dentroDeVentana = etaMinutos <= umbral;
-      const yaNotificada = sub.notificadaEn != null;
+      if (!dentroDeVentana) continue;
 
-      if (dentroDeVentana && !yaNotificada) {
-        const rutaNombre = sub.ruta?.nombre ?? '';
-        const paraderoNombre = sub.paradero?.nombre ?? '';
-        const placa = bus.placa ?? '';
+      const minutosDesdeUltima = sub.notificadaEn
+        ? (Date.now() - new Date(sub.notificadaEn).getTime()) / 60000
+        : Infinity;
+      if (minutosDesdeUltima < COOLDOWN_MIN) continue; // aún en cooldown → no reenvía
 
-        await this.notificacionService.crearNotificacion(
-          sub.persona as any,
-          'Tu bus está cerca',
-          `El bus ${placa} de la ruta ${rutaNombre} llega a ${paraderoNombre} en ~${etaMinutos} min.`,
-        );
+      const rutaNombre = sub.ruta?.nombre ?? '';
+      const paraderoNombre = sub.paradero?.nombre ?? '';
+      const placa = bus.placa ?? '';
 
-        this.monitoreoGateway.emitirAlertaBusProximo(personaId, {
-          rutaNombre,
-          etaMinutos,
-          placa,
-          busId: bus.id,
-          paraderoNombre,
-        });
+      await this.notificacionService.crearNotificacion(
+        sub.persona as any,
+        'Tu bus está cerca',
+        `El bus ${placa} de la ruta ${rutaNombre} llega a ${paraderoNombre} en ~${etaMinutos} min.`,
+      );
 
-        sub.notificadaEn = new Date();
-        await this.suscripcionRepo.save(sub);
-      } else if (!dentroDeVentana && yaNotificada) {
-        // El bus se alejó: reseteamos para que sirva en el próximo acercamiento/día.
-        sub.notificadaEn = null;
-        await this.suscripcionRepo.save(sub);
-      }
+      this.monitoreoGateway.emitirAlertaBusProximo(personaId, {
+        rutaNombre,
+        etaMinutos,
+        placa,
+        busId: bus.id,
+        paraderoNombre,
+      });
+
+      sub.notificadaEn = new Date();
+      await this.suscripcionRepo.save(sub);
     }
   }
 
@@ -455,9 +459,20 @@ export class MonitoreoService {
     const paradero = await this.paraderoRepo.findOne({ where: { id: paraderoId } });
     
     if (!bus || !paradero) throw new NotFoundException('Bus o Paradero no encontrado');
-    
-    // Si el bus no tiene coordenadas válidas en su sensor GPS, retornamos un estimado base seguro
-    if (!bus.gps || bus.gps.latitude === undefined || bus.gps.longitude === undefined) {
+
+    // Posición REAL del bus: misma fuente que el mapa (última ubicaciones_bus),
+    // con fallback al GPS sembrado. Si usáramos bus.gps directo, el simulador
+    // (que solo persiste en ubicaciones_bus) daría una ETA congelada en la semilla.
+    const ultima = await this.ultimaUbicacionDeBus(busId);
+    const busLat = ultima?.latitude != null
+      ? Number(ultima.latitude)
+      : (bus.gps?.latitude != null ? Number(bus.gps.latitude) : null);
+    const busLon = ultima?.longitude != null
+      ? Number(ultima.longitude)
+      : (bus.gps?.longitude != null ? Number(bus.gps.longitude) : null);
+
+    // Sin coordenadas válidas → estimado base seguro
+    if (busLat == null || busLon == null) {
       return { busId, paraderoId, etaMinutos: 10, nota: 'Coordenadas del bus no disponibles en este momento' };
     }
 
@@ -467,14 +482,16 @@ export class MonitoreoService {
 
     // 3. Calculamos la distancia geométrica real en kilómetros usando la fórmula esférica
     const distanciaKm = this.calcularDistanciaHaversine(
-      Number(bus.gps.latitude),
-      Number(bus.gps.longitude),
+      busLat,
+      busLon,
       Number(paraderoLat),
       Number(paraderoLon)
     );
 
     // 4. Determinamos la velocidad de cálculo (evita divisiones por cero si el bus frena en un semáforo)
-    const velocidadGps = (bus.gps as any).velocidad ? Number((bus.gps as any).velocidad) : 0;
+    const velocidadGps = ultima?.velocidad != null
+      ? Number(ultima.velocidad)
+      : ((bus.gps as any)?.velocidad ? Number((bus.gps as any).velocidad) : 0);
     const velocidadCalculo = velocidadGps > 5 ? velocidadGps : 25; // 25 km/h es la media de tráfico urbano seguro
 
     // 5. Tiempo = Distancia / Velocidad (Multiplicado por 60 para convertir las horas en minutos)

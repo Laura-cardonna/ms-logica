@@ -31,7 +31,8 @@ describe('NotificacionSuscripcionService', () => {
     service = module.get(NotificacionSuscripcionService);
   });
 
-  it('crear asocia persona/ruta/paradero y estado activa', async () => {
+  it('crear (sin existente) asocia persona/ruta/paradero y estado activa', async () => {
+    repo.find.mockResolvedValue([]); // no hay suscripción previa
     await service.crear('p1', { rutaId: 3, paraderoId: 9, minutosAnticipacion: 10 });
     expect(repo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -44,6 +45,25 @@ describe('NotificacionSuscripcionService', () => {
       }),
     );
     expect(repo.save).toHaveBeenCalled();
+  });
+
+  it('crear con triple existente NO inserta: reusa, actualiza minutos y resetea cooldown', async () => {
+    const existente = { id: 's1', minutosAnticipacion: 5, notificadaEn: new Date(), estado: 'activa' };
+    repo.find.mockResolvedValue([existente]);
+    await service.crear('p1', { rutaId: 3, paraderoId: 9, minutosAnticipacion: 15 });
+    expect(repo.create).not.toHaveBeenCalled();
+    expect(repo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 's1', minutosAnticipacion: 15, notificadaEn: null }),
+    );
+  });
+
+  it('crear con duplicadas las colapsa (desactiva las extra)', async () => {
+    const a = { id: 's1', minutosAnticipacion: 5, notificadaEn: null, estado: 'activa' };
+    const b = { id: 's2', minutosAnticipacion: 5, notificadaEn: null, estado: 'activa' };
+    repo.find.mockResolvedValue([a, b]);
+    await service.crear('p1', { rutaId: 3, paraderoId: 9, minutosAnticipacion: 10 });
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 's2', estado: 'inactiva' }));
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 's1', minutosAnticipacion: 10 }));
   });
 
   it('listarPorPersona filtra por persona', async () => {
