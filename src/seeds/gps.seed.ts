@@ -14,16 +14,18 @@ export async function seedGps(dataSource: DataSource) {
 
   const gpsDevices = [
     {
+      // HU-3-001: en Manizales, cerca de paraderos de "Ruta Centro - Sur" (El Cable / Cable Plaza)
       deviceCode: 'GPS-DEV-001',
-      latitude: 4.711,
-      longitude: -74.0075,
+      latitude: 5.054,
+      longitude: -75.493,
       lastUpdate: new Date(),
       bus: buses[0],
     },
     {
+      // HU-3-001: en Manizales, cerca del Paradero Fundadores (misma ruta)
       deviceCode: 'GPS-DEV-002',
-      latitude: 4.7169,
-      longitude: -74.0074,
+      latitude: 5.067,
+      longitude: -75.516,
       lastUpdate: new Date(),
       bus: buses[1],
     },
@@ -70,6 +72,12 @@ export async function seedGps(dataSource: DataSource) {
     });
     if (!existing) {
       await gpsRepository.save(gps);
+    } else {
+      // En dev, refrescamos coords a la posición de demo (idempotente)
+      existing.latitude = gps.latitude;
+      existing.longitude = gps.longitude;
+      existing.lastUpdate = gps.lastUpdate;
+      await gpsRepository.save(existing);
     }
   }
 

@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { Programacion } from '../programacion/entities/programacion.entity';
+import { Programacion, EstadoProgramacion } from '../programacion/entities/programacion.entity';
 import { Bus } from '../bus/entities/bus.entity';
 import { Ruta } from '../ruta/entities/ruta.entity';
 
@@ -41,6 +41,7 @@ export async function seedProgramaciones(dataSource: DataSource) {
 
   const programaciones = [
     {
+      // HU-3-001: bus ACTIVO y RETRASADO (salió 06:00, sin tolerancia) → banner + marcador rojo
       fecha: today,
       horaSalida: '06:00',
       horaLlegada: addMinutesToTime(
@@ -48,9 +49,10 @@ export async function seedProgramaciones(dataSource: DataSource) {
         Number(rutas[0].duracionEstimada ?? 35),
       ),
       duracionEstimada: Number(rutas[0].duracionEstimada ?? 35),
-      estado: 'programada',
+      estado: EstadoProgramacion.EN_CURSO,
+      margenToleranciaMinutos: 0,
       bus: buses[0],
-      ruta: rutas[0],
+      ruta: rutas[0], // Ruta Centro - Sur (tiene paraderos)
     },
     {
       fecha: today,
@@ -60,21 +62,23 @@ export async function seedProgramaciones(dataSource: DataSource) {
         Number(rutas[1].duracionEstimada ?? 40),
       ),
       duracionEstimada: Number(rutas[1].duracionEstimada ?? 40),
-      estado: 'programada',
+      estado: EstadoProgramacion.PROGRAMADO,
       bus: buses[0],
       ruta: rutas[1],
     },
     {
+      // HU-3-001: bus ACTIVO en horario (tolerancia amplia) → marcador verde, misma ruta
       fecha: today,
       horaSalida: '14:00',
       horaLlegada: addMinutesToTime(
         '14:00',
-        Number(rutas[2].duracionEstimada ?? 30),
+        Number(rutas[0].duracionEstimada ?? 35),
       ),
-      duracionEstimada: Number(rutas[2].duracionEstimada ?? 30),
-      estado: 'programada',
+      duracionEstimada: Number(rutas[0].duracionEstimada ?? 35),
+      estado: EstadoProgramacion.EN_CURSO,
+      margenToleranciaMinutos: 1440,
       bus: buses[1],
-      ruta: rutas[2],
+      ruta: rutas[0], // Ruta Centro - Sur (tiene paraderos)
     },
     {
       fecha: today,
@@ -84,7 +88,7 @@ export async function seedProgramaciones(dataSource: DataSource) {
         Number(rutas[3].duracionEstimada ?? 90),
       ),
       duracionEstimada: Number(rutas[3].duracionEstimada ?? 90),
-      estado: 'programada',
+      estado: EstadoProgramacion.PROGRAMADO,
       bus: buses[1],
       ruta: rutas[3],
     },
@@ -96,7 +100,7 @@ export async function seedProgramaciones(dataSource: DataSource) {
         Number(rutas[0].duracionEstimada ?? 35),
       ),
       duracionEstimada: Number(rutas[0].duracionEstimada ?? 35),
-      estado: 'programada',
+      estado: EstadoProgramacion.PROGRAMADO,
       bus: buses[2],
       ruta: rutas[0],
     },

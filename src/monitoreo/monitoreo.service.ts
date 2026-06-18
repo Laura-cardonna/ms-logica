@@ -93,13 +93,111 @@ export class MonitoreoService {
   }
 
   // --- MÉTODOS REQUERIDOS POR EL CONTROLADOR ---
+  /**
+   * 🚍 HU-3-001: Buses activos de una ruta enriquecidos.
+   * "Bus activo" = Programacion EN_CURSO. Parte de la programación, no del bus suelto,
+   * y toma la ÚLTIMA posición por bus (no las últimas 20 filas globales).
+   */
   async getBusesActivosPorRuta(rutaId: number) {
-    return await this.ubicacionRepo.find({
-      where: { ruta: { id: rutaId as any } },
-      relations: ['bus'],
-      order: { timestamp: 'DESC' } as any,
-      take: 20
+    const programaciones = await this.programacionRepo.find({
+      where: { ruta: { id: rutaId }, estado: EstadoProgramacion.EN_CURSO } as any,
+      relations: ['bus', 'bus.gps', 'ruta', 'ruta.rutaParaderos', 'ruta.rutaParaderos.paradero'],
+      order: { fechaCreacion: 'DESC' } as any,
     });
+
+    const resultado: any[] = [];
+    const vistos = new Set<number>();
+
+    for (const prog of programaciones) {
+      const bus = prog.bus;
+      const busId = bus?.id;
+      if (!bus || busId == null || vistos.has(busId)) continue; // dedupe por bus
+      vistos.add(busId);
+
+      const ultima = await this.ultimaUbicacionDeBus(busId);
+      const lat = ultima ? Number(ultima.latitude) : (bus.gps?.latitude != null ? Number(bus.gps.latitude) : null);
+      const lon = ultima ? Number(ultima.longitude) : (bus.gps?.longitude != null ? Number(bus.gps.longitude) : null);
+      if (lat == null || lon == null) continue; // sin posición no se pinta en el mapa
+
+      const paraderoMasCercano = this.paraderoMasCercano(lat, lon, prog.ruta?.rutaParaderos);
+      const retraso = this.calcularRetraso(prog);
+
+      // Incidente real vinculado a este viaje (paridad con actualizarUbicacion)
+      const incidenteReal = await this.incidenteRepo.findOne({
+        where: { bus: { id: busId }, programacion: { id: prog.id } as any } as any,
+      });
+
+      let tiempoEstimadoLlegada = 0;
+      if (paraderoMasCercano) {
+        const eta = await this.getEtaParaParadero(busId, paraderoMasCercano.id);
+        tiempoEstimadoLlegada = (eta as any).etaMinutos ?? 0;
+      }
+
+      const velocidad = ultima?.velocidad != null
+        ? Number(ultima.velocidad)
+        : (bus.gps?.velocidad ? Number(bus.gps.velocidad) : 0);
+
+      resultado.push({
+        busId,
+        placa: bus.placa,
+        latitude: lat,
+        longitude: lon,
+        velocidad,
+        ultimaActualizacion: ultima?.timestamp ?? bus.gps?.lastUpdate ?? null,
+        paraderoMasCercano,
+        tiempoEstimadoLlegada,
+        estaRetrasado: retraso.estaRetrasado,
+        minutosRetraso: retraso.minutosRetraso,
+        estado: (incidenteReal || retraso.estaRetrasado) ? 'incidente' : 'normal',
+      });
+    }
+
+    return resultado;
+  }
+
+  /** Última posición registrada de un bus (un row por update, ordenado por timestamp DESC). */
+  private async ultimaUbicacionDeBus(busId: number) {
+    return await this.ubicacionRepo.findOne({
+      where: { bus: { id: busId as any } } as any,
+      order: { timestamp: 'DESC' } as any,
+    });
+  }
+
+  /**
+   * 🗺️ HU-3-001: Paradero más cercano al bus dentro de su ruta EN_CURSO.
+   * Reusa Haversine. Devuelve null si no hay paraderos/coordenadas.
+   */
+  async getNearestParadero(busId: number) {
+    const prog = await this.programacionRepo.findOne({
+      where: { bus: { id: busId }, estado: EstadoProgramacion.EN_CURSO } as any,
+      relations: ['bus', 'bus.gps', 'ruta', 'ruta.rutaParaderos', 'ruta.rutaParaderos.paradero'],
+      order: { fechaCreacion: 'DESC' } as any,
+    });
+    if (!prog?.bus) return null;
+
+    const ultima = await this.ultimaUbicacionDeBus(busId);
+    const lat = ultima ? Number(ultima.latitude) : (prog.bus.gps?.latitude != null ? Number(prog.bus.gps.latitude) : null);
+    const lon = ultima ? Number(ultima.longitude) : (prog.bus.gps?.longitude != null ? Number(prog.bus.gps.longitude) : null);
+    if (lat == null || lon == null) return null;
+
+    return this.paraderoMasCercano(lat, lon, prog.ruta?.rutaParaderos);
+  }
+
+  /** Helper puro: paradero de menor distancia entre los rutaParaderos dados. */
+  private paraderoMasCercano(lat: number, lon: number, rutaParaderos?: any[]) {
+    if (!rutaParaderos?.length) return null;
+    let mejor: { id: number; nombre: string; distanciaMetros: number } | null = null;
+    let mejorKm = Infinity;
+    for (const rp of rutaParaderos) {
+      const p = rp?.paradero;
+      if (!p || p.latitud == null || p.longitud == null) continue;
+      const km = this.calcularDistanciaHaversine(lat, lon, Number(p.latitud), Number(p.longitud));
+      if (km < mejorKm) {
+        mejorKm = km;
+        mejor = { id: p.id, nombre: p.nombre, distanciaMetros: Math.round(km * 1000) };
+      }
+    }
+    return mejor;
   }
 
   /**
@@ -172,22 +270,34 @@ export class MonitoreoService {
   // ---------------------------------------------
 
   private async verificarRetraso(busId: number) {
-    const UMBRAL_MINUTOS = 10;
     try {
-      const ahora = new Date();
       const programacion = await this.programacionRepo.findOne({
         where: { bus: { id: busId }, estado: EstadoProgramacion.EN_CURSO } as any,
         order: { fechaCreacion: 'DESC' } as any,
       });
-      if (!programacion) return { estaRetrasado: false, minutosRetraso: 0 };
-      const fechaStr = programacion.fecha ? new Date(programacion.fecha).toISOString().split('T')[0] : ahora.toISOString().split('T')[0];
-      const salidaEsperada = new Date(`${fechaStr}T${programacion.horaSalida ?? '00:00'}:00`);
-      const minutosDesdePartida = Math.round((ahora.getTime() - salidaEsperada.getTime()) / 60000);
-      const minutosRetraso = minutosDesdePartida - (programacion.margenToleranciaMinutos ?? 0);
-      return { estaRetrasado: minutosRetraso > UMBRAL_MINUTOS, minutosRetraso: Math.max(0, minutosRetraso) };
+      return this.calcularRetraso(programacion);
     } catch {
       return { estaRetrasado: false, minutosRetraso: 0 };
     }
+  }
+
+  /**
+   * ⏱️ Helper puro: retraso de una programación.
+   * Umbral 10 min sobre horaSalida + margenToleranciaMinutos. Sin programación → false.
+   */
+  private calcularRetraso(programacion?: Programacion | null) {
+    const UMBRAL_MINUTOS = 10;
+    if (!programacion) return { estaRetrasado: false, minutosRetraso: 0 };
+    const ahora = new Date();
+    const fechaStr = programacion.fecha ? new Date(programacion.fecha).toISOString().split('T')[0] : ahora.toISOString().split('T')[0];
+    // La columna es `time` → la DB devuelve "HH:MM:SS"; el seed/cliente puede dar "HH:MM".
+    // Normalizamos a HH:MM:SS para no construir un Date inválido (NaN).
+    const [hh = '00', mm = '00', ss = '00'] = (programacion.horaSalida ?? '00:00:00').split(':');
+    const horaSalida = `${hh.padStart(2, '0')}:${mm.padStart(2, '0')}:${ss.padStart(2, '0')}`;
+    const salidaEsperada = new Date(`${fechaStr}T${horaSalida}`);
+    const minutosDesdePartida = Math.round((ahora.getTime() - salidaEsperada.getTime()) / 60000);
+    const minutosRetraso = minutosDesdePartida - (programacion.margenToleranciaMinutos ?? 0);
+    return { estaRetrasado: minutosRetraso > UMBRAL_MINUTOS, minutosRetraso: Math.max(0, minutosRetraso) };
   }
 
   private async enviarAlertaRetraso(placa: string, minutosRetraso: number) {
