@@ -1,0 +1,948 @@
+-- MySQL dump 10.13  Distrib 8.0.46, for Win64 (x86_64)
+--
+-- Host: 127.0.0.1    Database: buses-proyecto
+-- ------------------------------------------------------
+-- Server version	8.0.46
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Table structure for table `boletos`
+--
+
+DROP TABLE IF EXISTS `boletos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `boletos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `numero_boleto` varchar(255) NOT NULL,
+  `costo` decimal(10,0) NOT NULL,
+  `inicio_viaje` timestamp NOT NULL,
+  `fin_viaje` timestamp NULL DEFAULT NULL,
+  `estado` enum('activo','completado','cancelado') NOT NULL DEFAULT 'activo',
+  `programacion_id` int DEFAULT NULL,
+  `metodo_pago_ciudadano_id` int DEFAULT NULL,
+  `ruta_id` int DEFAULT NULL,
+  `ciudadano_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IDX_b0d92026e1cc4093bde51d0efb` (`numero_boleto`),
+  KEY `FK_365ae3b69628ff0f5c5e24618e0` (`programacion_id`),
+  KEY `FK_6f5aa1215938293919cea39e9d4` (`metodo_pago_ciudadano_id`),
+  KEY `FK_92028817f90df91a0030b3f21ac` (`ruta_id`),
+  KEY `FK_69150c39e62d07612ef23223a1b` (`ciudadano_id`),
+  CONSTRAINT `FK_365ae3b69628ff0f5c5e24618e0` FOREIGN KEY (`programacion_id`) REFERENCES `programaciones` (`id`),
+  CONSTRAINT `FK_69150c39e62d07612ef23223a1b` FOREIGN KEY (`ciudadano_id`) REFERENCES `ciudadanos` (`numericId`),
+  CONSTRAINT `FK_6f5aa1215938293919cea39e9d4` FOREIGN KEY (`metodo_pago_ciudadano_id`) REFERENCES `metodos_pago_ciudadano` (`id`),
+  CONSTRAINT `FK_92028817f90df91a0030b3f21ac` FOREIGN KEY (`ruta_id`) REFERENCES `rutas` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `boletos`
+--
+
+LOCK TABLES `boletos` WRITE;
+/*!40000 ALTER TABLE `boletos` DISABLE KEYS */;
+INSERT INTO `boletos` VALUES (1,'BOL-SEED-001',2500,'2026-06-13 05:00:00','2026-06-14 09:25:42','completado',1,1,NULL,1),(2,'BOL-SEED-002',2500,'2026-06-13 05:00:00','2026-06-14 01:16:40','completado',1,2,NULL,2),(3,'BOL-SEED-003',2500,'2026-06-13 05:00:00','2026-06-14 02:16:40','completado',2,3,NULL,3),(4,'BOL-SEED-004',2800,'2026-06-13 05:00:00',NULL,'activo',3,4,NULL,4),(5,'BOL-SEED-005',3000,'2026-06-13 05:00:00',NULL,'activo',4,5,NULL,1);
+/*!40000 ALTER TABLE `boletos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `buses`
+--
+
+DROP TABLE IF EXISTS `buses`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `buses` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `placa` varchar(255) NOT NULL,
+  `modelo` varchar(255) DEFAULT NULL,
+  `anio` int DEFAULT NULL,
+  `capacidad_sentados` int DEFAULT NULL,
+  `capacidad_parados` int DEFAULT NULL,
+  `capacidad_maxima` int DEFAULT NULL,
+  `estado` enum('operativo','mantenimiento','fuera_de_servicio') NOT NULL DEFAULT 'operativo',
+  `foto_url` varchar(255) DEFAULT NULL,
+  `codigo_qr` text,
+  `empresa_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IDX_e78e1b9df21315024e40a67d02` (`placa`),
+  KEY `FK_45fbb665b161ccb9b63acb9904c` (`empresa_id`),
+  CONSTRAINT `FK_45fbb665b161ccb9b63acb9904c` FOREIGN KEY (`empresa_id`) REFERENCES `empresas` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `buses`
+--
+
+LOCK TABLES `buses` WRITE;
+/*!40000 ALTER TABLE `buses` DISABLE KEYS */;
+INSERT INTO `buses` VALUES (1,'BUS-001','Mercedes-Benz 1418',NULL,NULL,NULL,45,'operativo',NULL,NULL,1),(2,'BUS-002','Scania K114',NULL,NULL,NULL,50,'operativo',NULL,NULL,1),(3,'BUS-003','Volvo B420',NULL,NULL,NULL,48,'operativo',NULL,NULL,1),(4,'BUS-004','Mercedes-Benz 1722',NULL,NULL,NULL,55,'operativo',NULL,NULL,1),(5,'BUS-005','Scania K94',NULL,NULL,NULL,42,'operativo',NULL,NULL,1),(6,'BUS-006','Volvo B270',NULL,NULL,NULL,40,'operativo',NULL,NULL,1),(7,'BUS-007','Mercedes-Benz 915',NULL,NULL,NULL,35,'operativo',NULL,NULL,1);
+/*!40000 ALTER TABLE `buses` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `ciudadanos`
+--
+
+DROP TABLE IF EXISTS `ciudadanos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ciudadanos` (
+  `numericId` int NOT NULL AUTO_INCREMENT,
+  `id` varchar(100) NOT NULL,
+  `nombre` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `cedula` varchar(20) DEFAULT NULL,
+  `telefono` varchar(20) DEFAULT NULL,
+  `fecha_nacimiento` date DEFAULT NULL,
+  `direccion_id` int DEFAULT NULL,
+  PRIMARY KEY (`numericId`),
+  UNIQUE KEY `IDX_cfda547dc37f25d61d2a31889b` (`id`),
+  UNIQUE KEY `REL_cfda547dc37f25d61d2a31889b` (`id`),
+  KEY `FK_6a8847447688148cfef1c382522` (`direccion_id`),
+  CONSTRAINT `FK_6a8847447688148cfef1c382522` FOREIGN KEY (`direccion_id`) REFERENCES `direcciones` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `FK_cfda547dc37f25d61d2a31889b4` FOREIGN KEY (`id`) REFERENCES `personas` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ciudadanos`
+--
+
+LOCK TABLES `ciudadanos` WRITE;
+/*!40000 ALTER TABLE `ciudadanos` DISABLE KEYS */;
+INSERT INTO `ciudadanos` VALUES (1,'bd2d8a86-e275-4bef-8261-6ab5f7594149','KAREN DAHIANA BUSTAMANTE TAMAYO','karen.bustamante40070@ucaldas.edu.co',NULL,NULL,NULL,NULL),(2,'f47ac10b-58cc-4372-a567-0e02b2c3d479','Maria Perez','maria@email.com','12345','3001234567','1994-03-11',1),(3,'7c9e6679-7425-40de-944b-e07fc1f90ae7','Juan Rodriguez','juan@email.com','67890','3109876543','1991-08-21',2),(4,'e8b5f2a1-3d4c-4b6e-9f8a-1c2d3e4f5a6b','Usuario Sin Saldo','pobre@email.com','55555','3150000000','2000-11-04',3);
+/*!40000 ALTER TABLE `ciudadanos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `conductores`
+--
+
+DROP TABLE IF EXISTS `conductores`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `conductores` (
+  `id` varchar(100) NOT NULL,
+  `nombre` varchar(255) DEFAULT NULL,
+  `licencia` varchar(255) DEFAULT NULL,
+  `telefono` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IDX_a01e7172ea361195be58ab5962` (`licencia`),
+  CONSTRAINT `FK_926e60bda075f19cd61b934ed39` FOREIGN KEY (`id`) REFERENCES `personas` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `conductores`
+--
+
+LOCK TABLES `conductores` WRITE;
+/*!40000 ALTER TABLE `conductores` DISABLE KEYS */;
+INSERT INTO `conductores` VALUES ('a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41','Carlos Martínez López','LIC-001-2024','3001234567'),('aaee28e7-2d84-493f-ae0c-ae8ef996142d','LAURA CARDONA GOMEZ','LIC-007-2026','3107654321'),('b7e2d456-9c3f-4a1b-9e2d-7f6a8b3c5d92','Juan Pérez Rodríguez','LIC-002-2024','3012345678'),('c1d9e837-5a4b-4c2d-8f3e-9a7b6c4d1e83','María González Gómez','LIC-003-2024','3023456789'),('d4f6a298-7b5c-4d3e-9a1f-8b6c7d5e2f94','Pedro Sánchez García','LIC-004-2024','3034567890'),('e8a3b519-6c4d-4e2f-9b3a-7c8d9e6f3a15','Ana Rodríguez Torres','LIC-005-2024','3045678901'),('f2b7c640-8d5e-4f3a-9c1b-6d9e8f7a4b26','Luis Hernández López','LIC-006-2024','3056789012');
+/*!40000 ALTER TABLE `conductores` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `destinatarios_grupos`
+--
+
+DROP TABLE IF EXISTS `destinatarios_grupos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `destinatarios_grupos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `mensaje_id` int DEFAULT NULL,
+  `grupo_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_20f657e780e82bc689d06d11c05` (`mensaje_id`),
+  KEY `FK_65df9327751cf8dd5aee3cc31ba` (`grupo_id`),
+  CONSTRAINT `FK_20f657e780e82bc689d06d11c05` FOREIGN KEY (`mensaje_id`) REFERENCES `mensajes` (`id`),
+  CONSTRAINT `FK_65df9327751cf8dd5aee3cc31ba` FOREIGN KEY (`grupo_id`) REFERENCES `grupos` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `destinatarios_grupos`
+--
+
+LOCK TABLES `destinatarios_grupos` WRITE;
+/*!40000 ALTER TABLE `destinatarios_grupos` DISABLE KEYS */;
+INSERT INTO `destinatarios_grupos` VALUES (1,1,1),(2,2,2),(3,3,2),(4,4,3),(5,5,4),(6,1,1),(7,2,2),(8,3,2),(9,4,3),(10,5,4);
+/*!40000 ALTER TABLE `destinatarios_grupos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `destinatarios_personas`
+--
+
+DROP TABLE IF EXISTS `destinatarios_personas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `destinatarios_personas` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `mensaje_id` int DEFAULT NULL,
+  `persona_id` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_f69094fcec2d2df49d47432bdda` (`mensaje_id`),
+  KEY `FK_998ec01fbe89e7088029b5cc9ba` (`persona_id`),
+  CONSTRAINT `FK_998ec01fbe89e7088029b5cc9ba` FOREIGN KEY (`persona_id`) REFERENCES `personas` (`id`),
+  CONSTRAINT `FK_f69094fcec2d2df49d47432bdda` FOREIGN KEY (`mensaje_id`) REFERENCES `mensajes` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `destinatarios_personas`
+--
+
+LOCK TABLES `destinatarios_personas` WRITE;
+/*!40000 ALTER TABLE `destinatarios_personas` DISABLE KEYS */;
+INSERT INTO `destinatarios_personas` VALUES (1,1,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41'),(2,1,'aaee28e7-2d84-493f-ae0c-ae8ef996142d'),(3,2,'7c9e6679-7425-40de-944b-e07fc1f90ae7'),(4,2,'b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d'),(5,3,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41'),(6,3,'b7e2d456-9c3f-4a1b-9e2d-7f6a8b3c5d92'),(7,4,'7c9e6679-7425-40de-944b-e07fc1f90ae7'),(8,4,'aaee28e7-2d84-493f-ae0c-ae8ef996142d'),(9,5,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41'),(10,5,'b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d'),(11,1,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41'),(12,1,'aaee28e7-2d84-493f-ae0c-ae8ef996142d'),(13,2,'7c9e6679-7425-40de-944b-e07fc1f90ae7'),(14,2,'b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d'),(15,3,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41'),(16,3,'b7e2d456-9c3f-4a1b-9e2d-7f6a8b3c5d92'),(17,4,'7c9e6679-7425-40de-944b-e07fc1f90ae7'),(18,4,'aaee28e7-2d84-493f-ae0c-ae8ef996142d'),(19,5,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41'),(20,5,'b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d');
+/*!40000 ALTER TABLE `destinatarios_personas` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `direcciones`
+--
+
+DROP TABLE IF EXISTS `direcciones`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `direcciones` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `calle` varchar(255) NOT NULL,
+  `numero` varchar(255) NOT NULL,
+  `apartamento` varchar(255) DEFAULT NULL,
+  `ciudad` varchar(255) NOT NULL,
+  `codigoPostal` varchar(255) NOT NULL,
+  `latitud` decimal(10,8) DEFAULT NULL,
+  `longitud` decimal(11,8) DEFAULT NULL,
+  `direccionCompleta` text,
+  `geocodificadoEn` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `direcciones`
+--
+
+LOCK TABLES `direcciones` WRITE;
+/*!40000 ALTER TABLE `direcciones` DISABLE KEYS */;
+INSERT INTO `direcciones` VALUES (1,'Carrera 5','22-10','Apt 501','Manizales','170001',NULL,NULL,NULL,'2026-06-14 03:08:42'),(2,'Avenida 19','45-30','Apt 302','Manizales','170002',NULL,NULL,NULL,'2026-06-14 03:08:42'),(3,'Calle 23','8-15',NULL,'Manizales','170003',NULL,NULL,NULL,'2026-06-14 03:08:42'),(4,'Carrera 7','20-45','Apt 1001','Manizales','170004',NULL,NULL,NULL,'2026-06-14 03:08:42'),(5,'Calle 19','5-25',NULL,'Manizales','170005',NULL,NULL,NULL,'2026-06-14 03:08:42');
+/*!40000 ALTER TABLE `direcciones` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `empresas`
+--
+
+DROP TABLE IF EXISTS `empresas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `empresas` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(255) NOT NULL,
+  `nit` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IDX_7a75c61d17a9cba267133a6fc6` (`nombre`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `empresas`
+--
+
+LOCK TABLES `empresas` WRITE;
+/*!40000 ALTER TABLE `empresas` DISABLE KEYS */;
+INSERT INTO `empresas` VALUES (1,'KALA','123456789-0'),(2,'Buses Andinos','987654321-0'),(3,'Transportes del Sur','456789123-0'),(4,'Rutas Expeditas','789123456-0');
+/*!40000 ALTER TABLE `empresas` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `fotos`
+--
+
+DROP TABLE IF EXISTS `fotos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fotos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `url` varchar(255) NOT NULL,
+  `fecha` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `incidente_bus_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_ff62ea628675c35a75cf5c65ea4` (`incidente_bus_id`),
+  CONSTRAINT `FK_ff62ea628675c35a75cf5c65ea4` FOREIGN KEY (`incidente_bus_id`) REFERENCES `incidentes_buses` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fotos`
+--
+
+LOCK TABLES `fotos` WRITE;
+/*!40000 ALTER TABLE `fotos` DISABLE KEYS */;
+INSERT INTO `fotos` VALUES (1,'https://storage.ejemplo.com/incidentes/foto-001-damage-mirror.jpg','2026-06-07 03:16:40',1),(2,'https://storage.ejemplo.com/incidentes/foto-002-damage-mirror-detail.jpg','2026-06-07 03:16:40',1),(3,'https://storage.ejemplo.com/incidentes/foto-003-traffic-jam.jpg','2026-06-11 03:16:40',2),(4,'https://storage.ejemplo.com/incidentes/foto-004-brake-system.jpg','2026-06-12 03:16:40',3),(5,'https://storage.ejemplo.com/incidentes/foto-005-brake-system-detail.jpg','2026-06-12 03:16:40',3),(6,'https://storage.ejemplo.com/incidentes/foto-006-passenger-area.jpg','2026-06-13 03:16:40',4),(7,'https://storage.ejemplo.com/incidentes/foto-007-broken-window.jpg','2026-06-14 03:16:40',5),(8,'https://storage.ejemplo.com/incidentes/foto-008-broken-window-external.jpg','2026-06-14 03:16:40',5);
+/*!40000 ALTER TABLE `fotos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `gps_devices`
+--
+
+DROP TABLE IF EXISTS `gps_devices`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `gps_devices` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `device_code` varchar(255) NOT NULL,
+  `latitude` decimal(10,8) NOT NULL,
+  `longitude` decimal(11,8) NOT NULL,
+  `last_update` timestamp NOT NULL,
+  `enRuta` tinyint NOT NULL DEFAULT '0',
+  `velocidad` varchar(20) DEFAULT NULL,
+  `bus_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IDX_ca27257747946fe9bf90ae311b` (`device_code`),
+  UNIQUE KEY `REL_f5406e954fd89b7819a1048ee9` (`bus_id`),
+  CONSTRAINT `FK_f5406e954fd89b7819a1048ee90` FOREIGN KEY (`bus_id`) REFERENCES `buses` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `gps_devices`
+--
+
+LOCK TABLES `gps_devices` WRITE;
+/*!40000 ALTER TABLE `gps_devices` DISABLE KEYS */;
+INSERT INTO `gps_devices` VALUES (1,'GPS-DEV-001',4.71100000,-74.00750000,'2026-06-14 03:16:39',0,NULL,1),(2,'GPS-DEV-002',4.71690000,-74.00740000,'2026-06-14 03:16:39',0,NULL,2),(3,'GPS-DEV-003',4.60970000,-74.08170000,'2026-06-14 03:16:39',0,NULL,3),(4,'GPS-DEV-004',4.55680000,-74.14660000,'2026-06-14 03:16:39',0,NULL,4),(5,'GPS-DEV-005',4.80000000,-74.03000000,'2026-06-14 03:16:39',0,NULL,5),(6,'GPS-DEV-006',4.65000000,-74.10000000,'2026-06-14 03:16:39',0,NULL,6),(7,'GPS-DEV-007',4.72000000,-74.05000000,'2026-06-14 03:16:39',0,NULL,7);
+/*!40000 ALTER TABLE `gps_devices` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `grupo_membresia_logs`
+--
+
+DROP TABLE IF EXISTS `grupo_membresia_logs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `grupo_membresia_logs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `accion` varchar(255) NOT NULL,
+  `fecha` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `grupo_id` int DEFAULT NULL,
+  `usuario_afectado_id` varchar(100) DEFAULT NULL,
+  `usuario_accion_id` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_c8b6f81fa41a29173608f2e43c9` (`grupo_id`),
+  KEY `FK_49803d3fdca306ddf99e7aea87e` (`usuario_afectado_id`),
+  KEY `FK_4c6de8f6b66e1c7dc6759dd79c6` (`usuario_accion_id`),
+  CONSTRAINT `FK_49803d3fdca306ddf99e7aea87e` FOREIGN KEY (`usuario_afectado_id`) REFERENCES `personas` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_4c6de8f6b66e1c7dc6759dd79c6` FOREIGN KEY (`usuario_accion_id`) REFERENCES `personas` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `FK_c8b6f81fa41a29173608f2e43c9` FOREIGN KEY (`grupo_id`) REFERENCES `grupos` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `grupo_membresia_logs`
+--
+
+LOCK TABLES `grupo_membresia_logs` WRITE;
+/*!40000 ALTER TABLE `grupo_membresia_logs` DISABLE KEYS */;
+/*!40000 ALTER TABLE `grupo_membresia_logs` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `grupos`
+--
+
+DROP TABLE IF EXISTS `grupos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `grupos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(255) NOT NULL,
+  `descripcion` text,
+  `esPublico` tinyint NOT NULL DEFAULT '1',
+  `imagenUrl` varchar(255) DEFAULT NULL,
+  `fecha_creacion` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `grupos`
+--
+
+LOCK TABLES `grupos` WRITE;
+/*!40000 ALTER TABLE `grupos` DISABLE KEYS */;
+INSERT INTO `grupos` VALUES (1,'Grupo Familia 1','Grupo de familia para comunicaciones internas',1,NULL,'2026-06-14 03:16:39'),(2,'Grupo Trabajo','Grupo de compañeros de trabajo',1,NULL,'2026-06-14 03:16:39'),(3,'Grupo Amigos','Grupo de amigos para eventos',1,NULL,'2026-06-14 03:16:39'),(4,'Grupo Comunidad','Grupo comunitario de Manizales',1,NULL,'2026-06-14 03:16:39');
+/*!40000 ALTER TABLE `grupos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `grupos_personas`
+--
+
+DROP TABLE IF EXISTS `grupos_personas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `grupos_personas` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `rol` varchar(255) NOT NULL DEFAULT 'miembro',
+  `fechaUnion` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `grupo_id` int DEFAULT NULL,
+  `persona_id` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IDX_ae7014f1cdb2b97a377676cf00` (`grupo_id`,`persona_id`),
+  KEY `FK_d0453d598c0500be4a9d02b8c39` (`persona_id`),
+  CONSTRAINT `FK_0605b164ac27a61768a04889831` FOREIGN KEY (`grupo_id`) REFERENCES `grupos` (`id`),
+  CONSTRAINT `FK_d0453d598c0500be4a9d02b8c39` FOREIGN KEY (`persona_id`) REFERENCES `personas` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `grupos_personas`
+--
+
+LOCK TABLES `grupos_personas` WRITE;
+/*!40000 ALTER TABLE `grupos_personas` DISABLE KEYS */;
+INSERT INTO `grupos_personas` VALUES (1,'miembro','2026-06-14 03:16:39',1,'7c9e6679-7425-40de-944b-e07fc1f90ae7'),(2,'miembro','2026-06-14 03:16:39',1,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41'),(3,'miembro','2026-06-14 03:16:39',2,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41'),(4,'miembro','2026-06-14 03:16:39',2,'aaee28e7-2d84-493f-ae0c-ae8ef996142d'),(5,'miembro','2026-06-14 03:16:39',3,'aaee28e7-2d84-493f-ae0c-ae8ef996142d'),(6,'miembro','2026-06-14 03:16:39',3,'b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d'),(7,'miembro','2026-06-14 03:16:39',4,'7c9e6679-7425-40de-944b-e07fc1f90ae7'),(8,'miembro','2026-06-14 03:16:39',4,'b7e2d456-9c3f-4a1b-9e2d-7f6a8b3c5d92'),(9,'miembro','2026-06-14 16:22:11',4,'bd2d8a86-e275-4bef-8261-6ab5f7594149');
+/*!40000 ALTER TABLE `grupos_personas` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `historiales`
+--
+
+DROP TABLE IF EXISTS `historiales`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `historiales` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `tipo` varchar(50) DEFAULT NULL,
+  `monto` decimal(10,2) DEFAULT NULL,
+  `descripcion` text,
+  `referenciaExterna` varchar(255) DEFAULT NULL,
+  `fecha` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `tarjeta_id` int DEFAULT NULL,
+  `nodo_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IDX_5dcc68f807243fbd308ec16680` (`referenciaExterna`),
+  KEY `FK_7b339abd2db524ba9d54aa8f37e` (`tarjeta_id`),
+  KEY `FK_35e0a0b332f545725f5a54ec63c` (`nodo_id`),
+  CONSTRAINT `FK_35e0a0b332f545725f5a54ec63c` FOREIGN KEY (`nodo_id`) REFERENCES `nodos` (`id`),
+  CONSTRAINT `FK_7b339abd2db524ba9d54aa8f37e` FOREIGN KEY (`tarjeta_id`) REFERENCES `metodos_pago_ciudadano` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `historiales`
+--
+
+LOCK TABLES `historiales` WRITE;
+/*!40000 ALTER TABLE `historiales` DISABLE KEYS */;
+INSERT INTO `historiales` VALUES (1,NULL,NULL,'Mantenimiento preventivo realizado exitosamente',NULL,'2026-06-13 22:16:39.884131',NULL,1),(2,NULL,NULL,'Actualización de sistema de GPS completada',NULL,'2026-06-13 22:16:39.892297',NULL,2),(3,NULL,NULL,'Recalibración de sensores realizada',NULL,'2026-06-13 22:16:39.900064',NULL,1),(4,NULL,NULL,'Instalación de nueva señalética',NULL,'2026-06-13 22:16:39.909124',NULL,3),(5,NULL,NULL,'Revisión de infraestructura de terminales',NULL,'2026-06-13 22:16:39.918840',NULL,4),(6,NULL,NULL,'Mantenimiento preventivo realizado exitosamente',NULL,'2026-06-14 01:09:54.943154',NULL,1),(7,NULL,NULL,'Actualización de sistema de GPS completada',NULL,'2026-06-14 01:09:54.953241',NULL,2),(8,NULL,NULL,'Recalibración de sensores realizada',NULL,'2026-06-14 01:09:54.959565',NULL,1),(9,NULL,NULL,'Instalación de nueva señalética',NULL,'2026-06-14 01:09:54.966225',NULL,3),(10,NULL,NULL,'Revisión de infraestructura de terminales',NULL,'2026-06-14 01:09:54.975934',NULL,4);
+/*!40000 ALTER TABLE `historiales` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `incidentes`
+--
+
+DROP TABLE IF EXISTS `incidentes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `incidentes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `tipo` varchar(255) NOT NULL,
+  `descripcion` text NOT NULL,
+  `fecha` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `estado` varchar(30) NOT NULL DEFAULT 'pendiente',
+  `comentarios` json DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `incidentes`
+--
+
+LOCK TABLES `incidentes` WRITE;
+/*!40000 ALTER TABLE `incidentes` DISABLE KEYS */;
+INSERT INTO `incidentes` VALUES (1,'Accidente leve','Accidente menor con daño en espejo lateral. Sin lesionados.','2026-06-07 03:08:43','pendiente',NULL),(2,'Retraso','Retraso de 45 minutos por congestión vial en carrera principal.','2026-06-11 03:08:43','pendiente',NULL),(3,'Falla mecánica','Falla en el sistema de frenos, bus inmovilizado en ruta.','2026-06-12 03:08:43','pendiente',NULL),(4,'Incidente con pasajero','Pasajero sufrió caída durante el recorrido. Trasladado a puesto de primeros auxilios.','2026-06-13 03:08:43','pendiente',NULL),(5,'Daño vandalismo','Rotura de ventana en lateral del bus por acto de vandalismo.','2026-06-14 03:08:43','pendiente',NULL);
+/*!40000 ALTER TABLE `incidentes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `incidentes_buses`
+--
+
+DROP TABLE IF EXISTS `incidentes_buses`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `incidentes_buses` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `tipo` enum('mecanico','accidente','retraso','otro') NOT NULL,
+  `gravedad` enum('bajo','medio','alto','critico') NOT NULL,
+  `descripcion` text NOT NULL,
+  `latitud` decimal(10,7) NOT NULL,
+  `longitud` decimal(10,7) NOT NULL,
+  `timestamp` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `incidente_id` int DEFAULT NULL,
+  `bus_id` int DEFAULT NULL,
+  `turno_id` int DEFAULT NULL,
+  `programacion_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_8179f1ccfa39b0c57e3ce773572` (`incidente_id`),
+  KEY `FK_224daaf04bf078241e136ccc05f` (`bus_id`),
+  KEY `FK_041e6bfb837b9d16906285882b3` (`turno_id`),
+  KEY `FK_15039045778805898ed8cc4394d` (`programacion_id`),
+  CONSTRAINT `FK_041e6bfb837b9d16906285882b3` FOREIGN KEY (`turno_id`) REFERENCES `turnos` (`id`),
+  CONSTRAINT `FK_15039045778805898ed8cc4394d` FOREIGN KEY (`programacion_id`) REFERENCES `programaciones` (`id`),
+  CONSTRAINT `FK_224daaf04bf078241e136ccc05f` FOREIGN KEY (`bus_id`) REFERENCES `buses` (`id`),
+  CONSTRAINT `FK_8179f1ccfa39b0c57e3ce773572` FOREIGN KEY (`incidente_id`) REFERENCES `incidentes` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `incidentes_buses`
+--
+
+LOCK TABLES `incidentes_buses` WRITE;
+/*!40000 ALTER TABLE `incidentes_buses` DISABLE KEYS */;
+INSERT INTO `incidentes_buses` VALUES (1,'mecanico','medio','Falla en el motor del bus',4.8065000,-75.6971000,'2026-06-14 03:16:39.419967',1,1,NULL,NULL),(2,'accidente','alto','Colisión menor en avenida principal',4.8100000,-75.7000000,'2026-06-14 03:16:39.432238',2,2,NULL,NULL),(3,'retraso','bajo','Retraso por tráfico pesado',4.8150000,-75.6900000,'2026-06-14 03:16:39.445902',3,3,NULL,NULL),(4,'mecanico','critico','Falla en frenos',4.8200000,-75.6850000,'2026-06-14 03:16:39.460281',4,4,NULL,NULL),(5,'otro','medio','Problema con aire acondicionado',4.8050000,-75.7050000,'2026-06-14 03:16:39.473502',5,5,NULL,NULL),(6,'retraso','bajo','Retraso por pasajeros',4.8120000,-75.6920000,'2026-06-14 03:16:39.483453',1,6,NULL,NULL);
+/*!40000 ALTER TABLE `incidentes_buses` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `mensajes`
+--
+
+DROP TABLE IF EXISTS `mensajes`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `mensajes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `fecha_envio` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `emisor_id` varchar(100) DEFAULT NULL,
+  `leidoAt` timestamp NULL DEFAULT NULL,
+  `ubicacion` text,
+  `receptorId` varchar(100) DEFAULT NULL,
+  `contenido` varchar(500) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_4b0fede3b11197cd002c7c25764` (`emisor_id`),
+  KEY `FK_6057bf3864f9b78a47e1e5c7e0e` (`receptorId`),
+  CONSTRAINT `FK_4b0fede3b11197cd002c7c25764` FOREIGN KEY (`emisor_id`) REFERENCES `personas` (`id`),
+  CONSTRAINT `FK_6057bf3864f9b78a47e1e5c7e0e` FOREIGN KEY (`receptorId`) REFERENCES `personas` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `mensajes`
+--
+
+LOCK TABLES `mensajes` WRITE;
+/*!40000 ALTER TABLE `mensajes` DISABLE KEYS */;
+INSERT INTO `mensajes` VALUES (1,'2026-06-14 03:16:39','7c9e6679-7425-40de-944b-e07fc1f90ae7',NULL,NULL,NULL,''),(2,'2026-06-14 03:16:39','a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41',NULL,NULL,NULL,''),(3,'2026-06-14 03:16:39','aaee28e7-2d84-493f-ae0c-ae8ef996142d',NULL,NULL,NULL,''),(4,'2026-06-14 03:16:39','b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',NULL,NULL,NULL,''),(5,'2026-06-14 03:16:39','b7e2d456-9c3f-4a1b-9e2d-7f6a8b3c5d92',NULL,NULL,NULL,''),(6,'2026-06-14 06:09:54','7c9e6679-7425-40de-944b-e07fc1f90ae7',NULL,NULL,NULL,''),(7,'2026-06-14 06:09:54','a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41',NULL,NULL,NULL,''),(8,'2026-06-14 06:09:54','aaee28e7-2d84-493f-ae0c-ae8ef996142d',NULL,NULL,NULL,''),(9,'2026-06-14 06:09:54','b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',NULL,NULL,NULL,''),(10,'2026-06-14 06:09:54','b7e2d456-9c3f-4a1b-9e2d-7f6a8b3c5d92',NULL,NULL,NULL,'');
+/*!40000 ALTER TABLE `mensajes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metodos_pago`
+--
+
+DROP TABLE IF EXISTS `metodos_pago`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `metodos_pago` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(255) NOT NULL,
+  `descripcion` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metodos_pago`
+--
+
+LOCK TABLES `metodos_pago` WRITE;
+/*!40000 ALTER TABLE `metodos_pago` DISABLE KEYS */;
+INSERT INTO `metodos_pago` VALUES (1,'Tarjeta de Débito','Pago con tarjeta de débito bancaria'),(2,'Tarjeta de Crédito','Pago con tarjeta de crédito'),(3,'Transferencia Bancaria','Pago mediante transferencia bancaria'),(4,'Efectivo','Pago en efectivo en terminal'),(5,'Billetera Digital','Pago mediante aplicación móvil');
+/*!40000 ALTER TABLE `metodos_pago` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `metodos_pago_ciudadano`
+--
+
+DROP TABLE IF EXISTS `metodos_pago_ciudadano`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `metodos_pago_ciudadano` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `tipoInstrumento` enum('TARJETA_DEBITO','TARJETA_CREDITO','RECARGABLE','APP_MOVIL','EFECTIVO') NOT NULL DEFAULT 'RECARGABLE',
+  `identificadorInstrumento` varchar(255) DEFAULT NULL,
+  `saldo` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `fecha_recarga` timestamp NULL DEFAULT NULL,
+  `estado` enum('activo','inactivo') NOT NULL DEFAULT 'activo',
+  `metodo_pago_id` int DEFAULT NULL,
+  `ciudadano_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_bbe14de130dc5b277a69019f33f` (`metodo_pago_id`),
+  KEY `FK_6ba1a4e7e5a41ad538ea80f63f6` (`ciudadano_id`),
+  CONSTRAINT `FK_6ba1a4e7e5a41ad538ea80f63f6` FOREIGN KEY (`ciudadano_id`) REFERENCES `ciudadanos` (`numericId`) ON DELETE RESTRICT,
+  CONSTRAINT `FK_bbe14de130dc5b277a69019f33f` FOREIGN KEY (`metodo_pago_id`) REFERENCES `metodos_pago` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `metodos_pago_ciudadano`
+--
+
+LOCK TABLES `metodos_pago_ciudadano` WRITE;
+/*!40000 ALTER TABLE `metodos_pago_ciudadano` DISABLE KEYS */;
+INSERT INTO `metodos_pago_ciudadano` VALUES (1,'RECARGABLE','TARJ-KAREN-1214',50000.00,'2026-06-14 02:34:20','activo',1,1),(2,'RECARGABLE','TARJ-MARIA-001',50000.00,'2026-06-14 03:16:39','activo',1,2),(3,'RECARGABLE','APP-JUAN-002',15000.00,'2026-06-14 03:16:39','activo',2,3),(4,'RECARGABLE','TARJ-SIN-SALDO',0.00,'2026-06-14 03:16:39','activo',1,4),(5,'RECARGABLE','TARJ-INACTIVA',100000.00,'2026-06-14 03:16:39','inactivo',1,2);
+/*!40000 ALTER TABLE `metodos_pago_ciudadano` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `nodos`
+--
+
+DROP TABLE IF EXISTS `nodos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `nodos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(255) NOT NULL,
+  `latitud` decimal(10,8) NOT NULL,
+  `longitud` decimal(11,8) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `nodos`
+--
+
+LOCK TABLES `nodos` WRITE;
+/*!40000 ALTER TABLE `nodos` DISABLE KEYS */;
+INSERT INTO `nodos` VALUES (1,'Terminal Central Manizales',5.06580000,-75.51590000),(2,'Nodo Sur Manizales',5.05000000,-75.52000000),(3,'Nodo Norte Manizales',5.08000000,-75.51000000),(4,'Nodo Este Manizales',5.07000000,-75.50000000);
+/*!40000 ALTER TABLE `nodos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `notificacion`
+--
+
+DROP TABLE IF EXISTS `notificacion`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `notificacion` (
+  `id` varchar(36) NOT NULL,
+  `titulo` varchar(255) NOT NULL,
+  `mensaje` text NOT NULL,
+  `leida` tinyint NOT NULL DEFAULT '0',
+  `fechaCreacion` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `personaId` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_10a7b3afa0c7875626499adf0d2` (`personaId`),
+  CONSTRAINT `FK_10a7b3afa0c7875626499adf0d2` FOREIGN KEY (`personaId`) REFERENCES `personas` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `notificacion`
+--
+
+LOCK TABLES `notificacion` WRITE;
+/*!40000 ALTER TABLE `notificacion` DISABLE KEYS */;
+/*!40000 ALTER TABLE `notificacion` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `paraderos`
+--
+
+DROP TABLE IF EXISTS `paraderos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `paraderos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(255) NOT NULL,
+  `descripcion` text,
+  `latitud` decimal(10,8) NOT NULL,
+  `longitud` decimal(11,8) NOT NULL,
+  `tipo` varchar(255) DEFAULT NULL,
+  `codigo` varchar(255) DEFAULT NULL,
+  `nodo_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_39df7286505b551c4b5b309ae1c` (`nodo_id`),
+  CONSTRAINT `FK_39df7286505b551c4b5b309ae1c` FOREIGN KEY (`nodo_id`) REFERENCES `nodos` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `paraderos`
+--
+
+LOCK TABLES `paraderos` WRITE;
+/*!40000 ALTER TABLE `paraderos` DISABLE KEYS */;
+INSERT INTO `paraderos` VALUES (1,'Paradero Cable Plaza','Paradero principal cerca del sector Cable Plaza',5.05260000,-75.49230000,NULL,NULL,1),(2,'Paradero Fundadores','Paradero del sector Fundadores en Manizales',5.06820000,-75.51740000,NULL,NULL,2),(3,'Paradero El Cable','Paradero en la zona universitaria de El Cable',5.05480000,-75.49370000,NULL,NULL,3),(4,'Paradero Centro Histórico','Paradero céntrico próximo a Plaza de Bolívar',5.07030000,-75.51380000,NULL,NULL,4),(5,'Paradero La Enea','Paradero del sector La Enea',5.04170000,-75.50720000,NULL,NULL,2);
+/*!40000 ALTER TABLE `paraderos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `personas`
+--
+
+DROP TABLE IF EXISTS `personas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `personas` (
+  `id` varchar(100) NOT NULL,
+  `nombre` varchar(255) DEFAULT NULL,
+  `cedula` varchar(255) DEFAULT NULL,
+  `telefono` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IDX_e397742915cffdfe1b9db0da50` (`cedula`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `personas`
+--
+
+LOCK TABLES `personas` WRITE;
+/*!40000 ALTER TABLE `personas` DISABLE KEYS */;
+INSERT INTO `personas` VALUES ('7c9e6679-7425-40de-944b-e07fc1f90ae7','Juan Rodriguez','67890','3109876543','juan@email.com'),('a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41','Juan Pérez','1234567890','3121234567','juan.perez@example.com'),('aaee28e7-2d84-493f-ae0c-ae8ef996142d','LAURA CARDONA GOMEZ','COND-007','3107654321','laura@empresa.com'),('b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d','María García','0987654321','3109876543','maria.garcia@example.com'),('b7e2d456-9c3f-4a1b-9e2d-7f6a8b3c5d92','Juan Pérez Rodríguez','COND-002','3012345678','juan@empresa.com'),('bd2d8a86-e275-4bef-8261-6ab5f7594149','KAREN DAHIANA BUSTAMANTE TAMAYO',NULL,NULL,'karen.bustamante40070@ucaldas.edu.co'),('c1d9e837-5a4b-4c2d-8f3e-9a7b6c4d1e83','María González Gómez','COND-003','3023456789','maria@empresa.com'),('c2b3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e','Carlos López','1122334455','3105551234','carlos.lopez@example.com'),('d3c4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f','Ana Martínez','5544332211','3115554321','ana.martinez@example.com'),('d4f6a298-7b5c-4d3e-9a1f-8b6c7d5e2f94','Pedro Sánchez García','COND-004','3034567890','pedro@empresa.com'),('e4d5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a','Pedro Rodríguez','9988776655','3127779999','pedro.rodriguez@example.com'),('e8a3b519-6c4d-4e2f-9b3a-7c8d9e6f3a15','Ana Rodríguez Torres','COND-005','3045678901','ana@empresa.com'),('e8b5f2a1-3d4c-4b6e-9f8a-1c2d3e4f5a6b','Usuario Sin Saldo','55555','3150000000','pobre@email.com'),('f2b7c640-8d5e-4f3a-9c1b-6d9e8f7a4b26','Luis Hernández López','COND-006','3056789012','luis@empresa.com'),('f47ac10b-58cc-4372-a567-0e02b2c3d479','Maria Perez','12345','3001234567','maria@email.com');
+/*!40000 ALTER TABLE `personas` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `programaciones`
+--
+
+DROP TABLE IF EXISTS `programaciones`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `programaciones` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `fecha` date NOT NULL,
+  `hora_salida` time NOT NULL,
+  `estado` varchar(20) NOT NULL DEFAULT 'programado',
+  `tipo_recurrencia` varchar(20) NOT NULL DEFAULT 'none',
+  `margen_tolerancia_minutos` int NOT NULL DEFAULT '0',
+  `observaciones` text,
+  `fecha_creacion` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `fecha_actualizacion` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `bus_id` int DEFAULT NULL,
+  `ruta_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_268023a8b8d040f970ef1183716` (`bus_id`),
+  KEY `FK_84ff5ccccc8d03befac42644d23` (`ruta_id`),
+  CONSTRAINT `FK_268023a8b8d040f970ef1183716` FOREIGN KEY (`bus_id`) REFERENCES `buses` (`id`),
+  CONSTRAINT `FK_84ff5ccccc8d03befac42644d23` FOREIGN KEY (`ruta_id`) REFERENCES `rutas` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `programaciones`
+--
+
+LOCK TABLES `programaciones` WRITE;
+/*!40000 ALTER TABLE `programaciones` DISABLE KEYS */;
+INSERT INTO `programaciones` VALUES (1,'2026-06-13','06:00:00','programada','none',0,NULL,'2026-06-13 22:16:39.288924','2026-06-13 22:16:39.288924',1,1),(2,'2026-06-13','08:30:00','programada','none',0,NULL,'2026-06-13 22:16:39.301454','2026-06-13 22:16:39.301454',1,2),(3,'2026-06-13','14:00:00','programada','none',0,NULL,'2026-06-13 22:16:39.313979','2026-06-13 22:16:39.313979',2,3),(4,'2026-06-13','16:30:00','programada','none',0,NULL,'2026-06-13 22:16:39.325989','2026-06-13 22:16:39.325989',2,4),(5,'2026-06-14','06:00:00','programada','none',0,NULL,'2026-06-13 22:16:39.336918','2026-06-13 22:16:39.336918',3,1),(6,'2026-06-14','06:00:00','programada','none',0,NULL,'2026-06-14 01:09:54.781739','2026-06-14 01:09:54.781739',1,1),(7,'2026-06-14','08:30:00','programada','none',0,NULL,'2026-06-14 01:09:54.794063','2026-06-14 01:09:54.794063',1,2),(8,'2026-06-14','14:00:00','programada','none',0,NULL,'2026-06-14 01:09:54.803529','2026-06-14 01:09:54.803529',2,3),(9,'2026-06-14','16:30:00','programada','none',0,NULL,'2026-06-14 01:09:54.811436','2026-06-14 01:09:54.811436',2,4),(10,'2026-06-15','06:00:00','programada','none',0,NULL,'2026-06-14 01:09:54.820724','2026-06-14 01:09:54.820724',3,1);
+/*!40000 ALTER TABLE `programaciones` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `ruta_paradero`
+--
+
+DROP TABLE IF EXISTS `ruta_paradero`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ruta_paradero` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `orden_secuencial` int NOT NULL,
+  `distancia_desde_anterior_metros` int DEFAULT NULL,
+  `tiempo_desde_anterior_minutos` int DEFAULT NULL,
+  `ruta_id` int DEFAULT NULL,
+  `paradero_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_72d54fccf60b6ea346ad3dc4469` (`ruta_id`),
+  KEY `FK_3060cb5c90d2504a25523504377` (`paradero_id`),
+  CONSTRAINT `FK_3060cb5c90d2504a25523504377` FOREIGN KEY (`paradero_id`) REFERENCES `paraderos` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_72d54fccf60b6ea346ad3dc4469` FOREIGN KEY (`ruta_id`) REFERENCES `rutas` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ruta_paradero`
+--
+
+LOCK TABLES `ruta_paradero` WRITE;
+/*!40000 ALTER TABLE `ruta_paradero` DISABLE KEYS */;
+INSERT INTO `ruta_paradero` VALUES (1,1,0,0,1,1),(2,2,1500,15,1,2),(3,3,2000,20,1,3),(4,1,0,0,2,1),(5,2,2500,25,2,3);
+/*!40000 ALTER TABLE `ruta_paradero` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `rutas`
+--
+
+DROP TABLE IF EXISTS `rutas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rutas` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(255) NOT NULL,
+  `descripcion` text,
+  `codigo` varchar(255) DEFAULT NULL,
+  `tarifa` decimal(10,2) NOT NULL,
+  `estado` enum('activa','inactiva') NOT NULL DEFAULT 'activa',
+  `duracion_estimada` int DEFAULT NULL,
+  `nodo_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `IDX_3e124d911cc0232d53384f7b4b` (`codigo`),
+  KEY `FK_e7b1e6dd1fdd8f9fd6aa855c6c9` (`nodo_id`),
+  CONSTRAINT `FK_e7b1e6dd1fdd8f9fd6aa855c6c9` FOREIGN KEY (`nodo_id`) REFERENCES `nodos` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `rutas`
+--
+
+LOCK TABLES `rutas` WRITE;
+/*!40000 ALTER TABLE `rutas` DISABLE KEYS */;
+INSERT INTO `rutas` VALUES (1,'Ruta Centro - Sur','Ruta desde el centro hacia la zona sur de Manizales',NULL,2500.00,'activa',35,1),(2,'Ruta Centro - Norte','Ruta desde el centro hacia la zona norte de Manizales',NULL,2500.00,'activa',40,1),(3,'Ruta Centro - Este','Ruta desde el centro hacia la zona este de Manizales',NULL,2500.00,'activa',30,1),(4,'Ruta Circular Manizales','Ruta circular que cubre toda la ciudad',NULL,3000.00,'activa',90,1);
+/*!40000 ALTER TABLE `rutas` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `turnos`
+--
+
+DROP TABLE IF EXISTS `turnos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `turnos` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `fecha` date NOT NULL,
+  `hora_inicio` timestamp NOT NULL,
+  `hora_fin` timestamp NOT NULL,
+  `estado` varchar(255) NOT NULL,
+  `estadoBusConfirmado` varchar(255) DEFAULT NULL,
+  `observaciones` varchar(255) DEFAULT NULL,
+  `conductor_id` varchar(100) DEFAULT NULL,
+  `bus_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_3db03ec6ba62996743b23a24b7e` (`conductor_id`),
+  KEY `FK_321cdd32b08af8ecab080d49f04` (`bus_id`),
+  CONSTRAINT `FK_321cdd32b08af8ecab080d49f04` FOREIGN KEY (`bus_id`) REFERENCES `buses` (`id`),
+  CONSTRAINT `FK_3db03ec6ba62996743b23a24b7e` FOREIGN KEY (`conductor_id`) REFERENCES `conductores` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `turnos`
+--
+
+LOCK TABLES `turnos` WRITE;
+/*!40000 ALTER TABLE `turnos` DISABLE KEYS */;
+INSERT INTO `turnos` VALUES (1,'2026-06-13','2026-06-13 11:00:00','2026-06-13 19:00:00','completado',NULL,NULL,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41',1),(2,'2026-06-13','2026-06-13 19:00:00','2026-06-14 03:00:00','completado',NULL,NULL,'aaee28e7-2d84-493f-ae0c-ae8ef996142d',2),(3,'2026-06-13','2026-06-13 11:30:00','2026-06-13 19:30:00','completado',NULL,NULL,'b7e2d456-9c3f-4a1b-9e2d-7f6a8b3c5d92',3),(4,'2026-06-14','2026-06-14 10:30:00','2026-06-14 18:30:00','completado',NULL,NULL,'c1d9e837-5a4b-4c2d-8f3e-9a7b6c4d1e83',4),(5,'2026-06-14','2026-06-14 19:00:00','2026-06-15 03:00:00','completado',NULL,NULL,'d4f6a298-7b5c-4d3e-9a1f-8b6c7d5e2f94',5),(6,'2026-06-14','2026-06-14 11:00:00','2026-06-14 19:00:00','completado',NULL,NULL,'a3f8c721-4d9e-4b2a-8f1c-6e5d9a2b7c41',1),(7,'2026-06-14','2026-06-14 19:00:00','2026-06-15 03:00:00','completado',NULL,NULL,'aaee28e7-2d84-493f-ae0c-ae8ef996142d',2),(8,'2026-06-14','2026-06-14 11:30:00','2026-06-14 19:30:00','completado',NULL,NULL,'b7e2d456-9c3f-4a1b-9e2d-7f6a8b3c5d92',3),(9,'2026-06-15','2026-06-15 10:30:00','2026-06-15 18:30:00','completado',NULL,NULL,'c1d9e837-5a4b-4c2d-8f3e-9a7b6c4d1e83',4),(10,'2026-06-15','2026-06-15 19:00:00','2026-06-16 03:00:00','completado',NULL,NULL,'d4f6a298-7b5c-4d3e-9a1f-8b6c7d5e2f94',5);
+/*!40000 ALTER TABLE `turnos` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `ubicaciones_bus`
+--
+
+DROP TABLE IF EXISTS `ubicaciones_bus`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ubicaciones_bus` (
+  `id` varchar(36) NOT NULL,
+  `latitude` decimal(10,7) NOT NULL,
+  `longitude` decimal(10,7) NOT NULL,
+  `velocidad` decimal(5,2) DEFAULT NULL,
+  `timestamp` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `busId` int DEFAULT NULL,
+  `rutaId` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_28a9992ffa79af812cb2f588fe0` (`busId`),
+  KEY `FK_effb7be90d6accbaae0d0f5788d` (`rutaId`),
+  CONSTRAINT `FK_28a9992ffa79af812cb2f588fe0` FOREIGN KEY (`busId`) REFERENCES `buses` (`id`),
+  CONSTRAINT `FK_effb7be90d6accbaae0d0f5788d` FOREIGN KEY (`rutaId`) REFERENCES `rutas` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ubicaciones_bus`
+--
+
+LOCK TABLES `ubicaciones_bus` WRITE;
+/*!40000 ALTER TABLE `ubicaciones_bus` DISABLE KEYS */;
+/*!40000 ALTER TABLE `ubicaciones_bus` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `validaciones`
+--
+
+DROP TABLE IF EXISTS `validaciones`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `validaciones` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `tipo` enum('abordaje','descenso') NOT NULL,
+  `fecha` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `motivo` varchar(255) DEFAULT NULL,
+  `boleto_id` int DEFAULT NULL,
+  `paradero_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_873d28f8819796a5e830362ee99` (`boleto_id`),
+  KEY `FK_d09a2f01d7d5782d9cd269ac0cd` (`paradero_id`),
+  CONSTRAINT `FK_873d28f8819796a5e830362ee99` FOREIGN KEY (`boleto_id`) REFERENCES `boletos` (`id`),
+  CONSTRAINT `FK_d09a2f01d7d5782d9cd269ac0cd` FOREIGN KEY (`paradero_id`) REFERENCES `paraderos` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `validaciones`
+--
+
+LOCK TABLES `validaciones` WRITE;
+/*!40000 ALTER TABLE `validaciones` DISABLE KEYS */;
+INSERT INTO `validaciones` VALUES (1,'abordaje','2026-06-14 03:16:40','Boleto válido',1,1),(2,'abordaje','2026-06-14 03:16:40','Boleto válido',2,2),(3,'descenso','2026-06-14 03:16:40','Descenso autorizado',1,3),(4,'abordaje','2026-06-14 03:16:40','Boleto válido',3,1),(5,'abordaje','2026-06-14 06:09:55','Boleto válido',1,1),(6,'abordaje','2026-06-14 06:09:55','Boleto válido',2,2),(7,'descenso','2026-06-14 06:09:55','Descenso autorizado',1,3),(8,'abordaje','2026-06-14 06:09:55','Boleto válido',3,1),(9,'descenso','2026-06-14 09:25:42','Viaje completado - Gracias por usar nuestro servicio',1,2);
+/*!40000 ALTER TABLE `validaciones` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-06-17 16:50:44

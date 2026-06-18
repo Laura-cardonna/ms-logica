@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -50,6 +51,13 @@ import { NotificacionModule } from './notificacion/notificacion.module';
         username: configService.get('DB_USER'),
         password: configService.get('DB_PASS'),
         database: configService.get('DB_NAME'),
+        ssl:
+          configService.get('DB_SSL') === 'true'
+            ? {
+                ca: readFileSync(configService.get('DB_CA_PATH') as string),
+                rejectUnauthorized: true,
+              }
+            : undefined,
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true,
         autoLoadEntities: true,
