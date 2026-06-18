@@ -49,7 +49,7 @@ export class MensajeService {
   // ✨ NUEVO: Obtener historial directo (Bandeja 1 a 1)
   // ==========================================
   async obtenerHistorialPrivado(emisorId: string, receptorId: string) {
-    return await this.mensajeRepository.find({
+    const mensajes = await this.mensajeRepository.find({
       where: [
         // ✅ CORRECCIÓN 3: Buscamos usando el objeto receptor, no la propiedad plana
         { emisor: { id: emisorId }, receptor: { id: receptorId } },
@@ -58,6 +58,19 @@ export class MensajeService {
       relations: ['emisor', 'receptor'], // Traemos los datos para mostrar los nombres en el frontend
       order: { fechaEnvio: 'ASC' }
     });
+
+    // 🔑 Aplanamos emisor/receptor → emisorId/receptorId para que el front calcule
+    // 'esMio' y pinte el doble-check; exponemos 'ubicacion' para el link de mapa.
+    return mensajes.map(m => ({
+      id: m.id,
+      contenido: m.contenido,
+      emisorId: m.emisor?.id,
+      emisorNombre: m.emisor?.nombre,
+      receptorId: m.receptor?.id,
+      ubicacion: m.ubicacion ?? null,
+      fechaEnvio: m.fechaEnvio,
+      leidoAt: m.leidoAt ?? null,
+    }));
   }
 
   // 👇 MÉTODO ORIGINAL: Marcar mensaje como leído 👇

@@ -123,18 +123,31 @@ export class MensajeGateway {
     try {
       // 1. Guardar en Base de Datos (Esto dispara la validación de 500 caracteres)
       const mensajeGuardado = await this.mensajeService.enviarMensajePrivado(
-        data.emisorId, 
-        data.receptorId, 
+        data.emisorId,
+        data.receptorId,
         data.contenido,
         data.ubicacion
       );
 
+      // 🔑 Normalizamos a campos PLANOS (emisorId/receptorId). La entidad guardada
+      // sólo trae relaciones anidadas (emisor:{id}); el front consume emisorId/
+      // receptorId/ubicacion, así que sin esto el DM en tiempo real queda mudo.
+      const payload = {
+        id: mensajeGuardado.id,
+        contenido: mensajeGuardado.contenido,
+        emisorId: data.emisorId,
+        receptorId: data.receptorId,
+        ubicacion: mensajeGuardado.ubicacion ?? null,
+        fechaEnvio: mensajeGuardado.fechaEnvio ?? new Date(),
+        leidoAt: mensajeGuardado.leidoAt ?? null,
+      };
+
       // 2. Transmitir en tiempo real al destinatario (CA-4)
       const roomDestinatario = `user_${data.receptorId}`;
-      this.server.to(roomDestinatario).emit('recibirMensajePrivado', mensajeGuardado);
+      this.server.to(roomDestinatario).emit('recibirMensajePrivado', payload);
 
       // 3. Devolver al emisor para que se actualice su bandeja al instante
-      client.emit('recibirMensajePrivado', mensajeGuardado);
+      client.emit('recibirMensajePrivado', payload);
 
       console.log(`💬 DB Guardado: Mensaje privado de ${data.emisorId} a ${data.receptorId}`);
     } catch (error) {
