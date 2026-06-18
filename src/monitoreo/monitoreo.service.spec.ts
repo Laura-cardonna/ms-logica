@@ -192,20 +192,25 @@ describe('MonitoreoService', () => {
   });
 
   describe('getDashboard', () => {
-    it('ensambla totales coherentes (incidentesActivos = incidentes.length)', async () => {
-      // 1ª llamada: getDashboard (busesOperando) → 2 buses, ambos con ubicación.
-      // 2ª llamada: getTotalPasajerosEnTransito. 3ª: getAlertasOcupacion.
+    it('ensambla buses[] + totales coherentes (busesOperando = buses con posición)', async () => {
+      // Orden de programacionRepo.find:
+      //  #1 getFlotaActivaGlobal → 2 buses con gps (fallback de posición)
+      //  #2 getTotalPasajerosEnTransito
+      //  #3 getAlertasOcupacion
       programacionRepo.find
         .mockResolvedValueOnce([
-          { id: 1, bus: { id: 10 } },
-          { id: 2, bus: { id: 11 } },
+          { id: 1, bus: { id: 10, placa: 'AAA-111', capacidadMaxima: 20, gps: { latitude: 5.0, longitude: -75.0 } } },
+          { id: 2, bus: { id: 11, placa: 'BBB-222', capacidadMaxima: 30, gps: { latitude: 5.1, longitude: -75.1 } } },
         ])
         .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
         .mockResolvedValueOnce([
           { id: 1, bus: { id: 10, placa: 'AAA-111', capacidadMaxima: 20 } },
         ]);
-      ubicacionRepo.findOne.mockResolvedValue({ id: 'u1' }); // toda última ubicación existe
+      ubicacionRepo.findOne.mockResolvedValue(null); // sin ubicaciones_bus → usa bus.gps
+      incidenteBusRepo.findOne.mockResolvedValue(null); // sin incidente ligado en getFlotaActivaGlobal
       boletoRepo.count
+        .mockResolvedValueOnce(3) // flota bus 10 (pasajerosCalculados)
+        .mockResolvedValueOnce(7) // flota bus 11
         .mockResolvedValueOnce(4) // pasajeros prog 1
         .mockResolvedValueOnce(6) // pasajeros prog 2
         .mockResolvedValueOnce(25); // ocupación prog 1 → alerta (>=20)
@@ -214,6 +219,8 @@ describe('MonitoreoService', () => {
       ]);
 
       const dash = await service.getDashboard();
+      expect(dash.buses).toHaveLength(2);
+      expect(dash.buses[0]).toMatchObject({ busId: 10, latitud: 5.0, longitud: -75.0 });
       expect(dash.busesOperando).toBe(2);
       expect(dash.totalActivos).toBe(2);
       expect(dash.pasajerosEnTransito).toBe(10);

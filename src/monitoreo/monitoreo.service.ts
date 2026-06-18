@@ -254,33 +254,71 @@ export class MonitoreoService {
   }
 
   /**
-   * 🧮 Ensambla el panel de control. Mapa = socket; este endpoint = KPIs (polling 30s).
+   * 🗺️ Flota activa global para el mapa del supervisor. Reusa el patrón de
+   * getBusesActivosPorRuta pero sobre TODAS las programaciones EN_CURSO.
+   * Posición = última ubicaciones_bus o fallback bus.gps (igual que HU-3-001),
+   * para que el mapa muestre buses sin depender de un POST de GPS en vivo.
    */
-  async getDashboard() {
-    const activas = await this.programacionRepo.find({
+  async getFlotaActivaGlobal() {
+    const programaciones = await this.programacionRepo.find({
       where: { estado: EstadoProgramacion.EN_CURSO } as any,
-      relations: ['bus'],
+      relations: ['bus', 'bus.gps'],
+      order: { fechaCreacion: 'DESC' } as any,
     });
 
-    // Buses operando = buses distintos EN_CURSO con última ubicación registrada.
-    const busesVistos = new Set<number>();
-    let busesOperando = 0;
-    for (const prog of activas) {
-      const busId = prog.bus?.id;
-      if (!busId || busesVistos.has(busId)) continue;
-      busesVistos.add(busId);
+    const buses: any[] = [];
+    const vistos = new Set<number>();
+
+    for (const prog of programaciones) {
+      const bus = prog.bus;
+      const busId = bus?.id;
+      if (!bus || busId == null || vistos.has(busId)) continue;
+      vistos.add(busId);
+
       const ultima = await this.ultimaUbicacionDeBus(busId);
-      if (ultima) busesOperando++;
+      const lat = ultima ? Number(ultima.latitude) : (bus.gps?.latitude != null ? Number(bus.gps.latitude) : null);
+      const lon = ultima ? Number(ultima.longitude) : (bus.gps?.longitude != null ? Number(bus.gps.longitude) : null);
+      if (lat == null || lon == null) continue; // sin posición no se pinta
+
+      const incidenteReal = await this.incidenteRepo.findOne({
+        where: { bus: { id: busId }, programacion: { id: prog.id } as any } as any,
+      });
+      const retraso = this.calcularRetraso(prog);
+      const pasajerosCalculados = prog.id != null ? await this.contarBoletosActivos(prog.id) : 0;
+      const velocidad = ultima?.velocidad != null
+        ? Number(ultima.velocidad)
+        : (bus.gps?.velocidad ? Number(bus.gps.velocidad) : 0);
+
+      buses.push({
+        busId,
+        placa: bus.placa,
+        latitud: lat,
+        longitud: lon,
+        estado: (incidenteReal || retraso.estaRetrasado) ? 'incidente' : 'normal',
+        pasajerosCalculados,
+        capacidadMaxima: bus.capacidadMaxima ?? null,
+        velocidad,
+      });
     }
 
+    return buses;
+  }
+
+  /**
+   * 🧮 Ensambla el panel de control. `buses` alimenta el mapa desde la BD;
+   * el socket actualiza en vivo encima. KPIs por polling (30s).
+   */
+  async getDashboard() {
+    const buses = await this.getFlotaActivaGlobal();
     const pasajerosEnTransito = await this.getTotalPasajerosEnTransito();
     const incidentes = await this.getIncidentesActivos();
     const alertasOcupacion = (await this.getAlertasOcupacion()).length;
 
     return {
+      buses,
       pasajerosEnTransito,
-      busesOperando,
-      totalActivos: busesOperando, // alias de compatibilidad con el modelo del front
+      busesOperando: buses.length,
+      totalActivos: buses.length, // alias de compatibilidad con el modelo del front
       incidentes,
       incidentesActivos: incidentes.length,
       alertasOcupacion,
