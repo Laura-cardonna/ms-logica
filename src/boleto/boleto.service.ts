@@ -532,13 +532,15 @@ async obtenerParaderosDescenso(boletoId: number) {
   }
 
 /**
-   * 🌟 HU-ENTR-3-008: Obtener la lista de Ciudadanos según el alcance configurado
+   * 🌟 HU-ENTR-3-008: Obtener la lista de Ciudadanos según el alcance configurado (Rutas y Zonas GPS)
    */
   async obtenerDestinatariosAlerta(alcanceTipo: string, alcanceId?: string): Promise<Ciudadano[]> {
+    // 1. ALCANCE GENERAL
     if (alcanceTipo === 'TODOS') {
       return await this.ciudadanoRepository.find();
     }
 
+    // 2. ALCANCE POR RUTA (Usuarios con viaje activo en la ruta)
     if (alcanceTipo === 'RUTA' && alcanceId) {
       const boletosActivos = await this.boletoRepository.find({
         where: {
@@ -550,19 +552,71 @@ async obtenerParaderosDescenso(boletoId: number) {
 
       const ciudadanosMapeados = boletosActivos
         .map(b => b.ciudadano)
-        .filter((c): c is Ciudadano => !!c && c.id !== undefined); // Asegura que c y c.id no sean undefined
+        .filter((c): c is Ciudadano => !!c && c.id !== undefined);
 
       const deDuplicados = new Map<string | number, Ciudadano>();
       ciudadanosMapeados.forEach(c => {
-        if (c.id !== undefined) {
-          deDuplicados.set(c.id, c);
-        }
+        if (c.id !== undefined) deDuplicados.set(c.id, c);
       });
       return Array.from(deDuplicados.values());
     }
 
+    // 3. ALCANCE POR ZONA GPS (Usuarios a bordo de unidades que cruzan por un cuadrante/perímetro)
     if (alcanceTipo === 'ZONA' && alcanceId) {
-      return [];
+      /**
+       * Definimos coordenadas de referencia lógicas para los perímetros operativos reales de la flota.
+       * (Por ejemplo, si el admin manda el ID 'ZONA-NORTE', 'ZONA-SUR', etc., evaluamos los buses ahí).
+       */
+      let centroLat = 0;
+      let centroLng = 0;
+      const radioKilometros = 5; // Radio de afectación de la alerta en Km
+
+      if (alcanceId.includes('NORTE')) {
+        centroLat = 4.6900; centroLng = -74.0500; // Coordenadas ejemplo Zona Norte
+      } else if (alcanceId.includes('SUR')) {
+        centroLat = 4.5700; centroLng = -74.1300; // Coordenadas ejemplo Zona Sur
+      } else {
+        centroLat = 4.6097; centroLng = -74.0817; // Coordenadas de respaldo (Centro)
+      }
+
+      // Buscamos todos los boletos activos (usuarios arriba de un bus) cargando la ruta del GPS
+      const viajesEnCurso = await this.boletoRepository.find({
+        where: { estado: 'activo' },
+        relations: ['ciudadano', 'programacion', 'programacion.bus', 'programacion.bus.gps']
+      });
+
+      const ciudadanosEnZona: Ciudadano[] = [];
+
+      for (const viaje of viajesEnCurso) {
+        const gps = viaje.programacion?.bus?.gps;
+        if (gps && gps.latitude && gps.longitude) {
+          
+          // Aplicamos la Fórmula del Haversine para calcular distancias en la tierra
+          const R = 6371; // Radio de la Tierra en km
+          const dLat = (Number(gps.latitude) - centroLat) * (Math.PI / 180);
+          const dLng = (Number(gps.longitude) - centroLng) * (Math.PI / 180);
+          
+          const a = 
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(centroLat * (Math.PI / 180)) * Math.cos(Number(gps.latitude) * (Math.PI / 180)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+          
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distanciaBusesCentro = R * c;
+
+          // Si el bus en tiempo real está en el radio de la zona, alertamos a su pasajero
+          if (distanciaBusesCentro <= radioKilometros && viaje.ciudadano) {
+            ciudadanosEnZona.push(viaje.ciudadano);
+          }
+        }
+      }
+
+      // Eliminar duplicados si un usuario tuviese más de un boleto huérfano activo
+      const deDuplicadosZona = new Map<string | number, Ciudadano>();
+      ciudadanosEnZona.forEach(c => {
+        if (c.id !== undefined) deDuplicadosZona.set(c.id, c);
+      });
+
+      return Array.from(deDuplicadosZona.values());
     }
 
     return [];
@@ -576,4 +630,5 @@ async obtenerParaderosDescenso(boletoId: number) {
     return { total: destinatarios.length };
   }
 
+  
 }

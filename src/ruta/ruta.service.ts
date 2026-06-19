@@ -10,6 +10,7 @@ import {
 import { Ruta } from './entities/ruta.entity';
 import { RutaParadero } from 'src/ruta_paradero/entities/ruta_paradero.entity';
 import { Paradero } from 'src/paradero/entities/paradero.entity';
+import { Nodo } from 'src/nodo/entities/nodo.entity';
 
 @Injectable()
 export class RutaService {
@@ -20,7 +21,11 @@ export class RutaService {
     private readonly rutaParaderoRepository: Repository<RutaParadero>,
     @InjectRepository(Paradero)
     private readonly paraderoRepository: Repository<Paradero>,
-  ) {}
+    
+    @InjectRepository(Nodo)
+    private readonly nodoRepository: Repository<Nodo>,
+  
+  ) { }
 
   /**
    * Crea una nueva ruta
@@ -390,5 +395,22 @@ export class RutaService {
       cantidadParaderos: paraderosRecorrido.length,
       paraderos: paraderosRecorrido,
     };
+
+  }
+  /**
+   * 🗺️ Obtiene las zonas geográficas reales agrupando los paraderos registrados
+   */
+async obtenerZonasAgrupadas() {
+    const nodosReales = await this.nodoRepository
+      .createQueryBuilder('nodo')
+      .select(['nodo.id', 'nodo.nombre', 'nodo.latitud', 'nodo.longitud'])
+      .orderBy('nodo.nombre', 'ASC')
+      .getMany();
+
+    // Mapeamos los campos para que la interfaz mantenga el formato { id, nombre }
+    return nodosReales.map(n => ({
+      id: String(n.id),
+      nombre: n.nombre || `Nodo Operativo #${n.id}`
+    }));
   }
 }

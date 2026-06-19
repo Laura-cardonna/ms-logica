@@ -75,4 +75,13 @@ export class RutaController {
   remove(@Param('id') id: string) {
     return this.rutaService.remove(+id);
   }
+
+ /**
+   * 🗺️ Obtiene las zonas geográficas reales agrupando los paraderos registrados
+   * Criterio HU-ENTR-3-008: Selección de alcance por zona
+   */
+  @Get('zonas/disponibles')
+  async obtenerZonas() {
+    return this.rutaService.obtenerZonasAgrupadas();
+  }
 }
