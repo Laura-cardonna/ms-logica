@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
-import { Mensaje } from './entities/mensaje.entity';
+import { Mensaje, AlcanceAlerta } from './entities/mensaje.entity';
 import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
 import { LecturaGrupo } from './entities/lectura_grupo.entity';
 import { Persona } from 'src/persona/entities/persona.entity';
