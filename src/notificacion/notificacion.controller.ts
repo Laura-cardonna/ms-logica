@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { NotificacionService } from './notificacion.service';
 
 @Controller('notificacion')
@@ -18,5 +18,13 @@ export class NotificacionController {
   @Patch('leer/:id')
   leer(@Param('id') id: string) {
     return this.notificacionService.marcarComoLeida(id);
+  }
+
+@Patch('alerta/:mensajeId/leer')
+  leerAlerta(
+    @Param('mensajeId') mensajeId: number,
+    @Query('personaId') personaId: string,
+  ) {
+    return this.notificacionService.marcarAlertaComoLeida(mensajeId, personaId);
   }
 }

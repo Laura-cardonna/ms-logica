@@ -35,6 +35,7 @@ import { ReportesModule } from './reportes/reportes.module';
 import { MonitoreoModule } from './monitoreo/monitoreo.module';
 import { NotificacionModule } from './notificacion/notificacion.module';
 import { NotificacionSuscripcionModule } from './notificacion-suscripcion/notificacion-suscripcion.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { NotificacionSuscripcionModule } from './notificacion-suscripcion/notifi
     MonitoreoModule,
     NotificacionModule,
     NotificacionSuscripcionModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],

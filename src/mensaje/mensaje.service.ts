@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, In } from 'typeorm';
-import { Mensaje } from './entities/mensaje.entity';
+import { Repository, IsNull, In, Not } from 'typeorm';
+import { Mensaje, AlcanceAlerta } from './entities/mensaje.entity';
 import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
 import { LecturaGrupo } from './entities/lectura_grupo.entity';
 import { Persona } from 'src/persona/entities/persona.entity';
@@ -475,80 +475,109 @@ mensajesDirectos = directos.map(msg => ({
   // =========================================================================
   // ✨ NUEVO: HU-ENTR-3-008 - Enviar Alerta Masiva (Urgente / Programada)
   // =========================================================================
-  async enviarAlertaMasiva(emisorId: string, dto: CreateAlertaMasivaDto) {
-    if (dto.contenido && dto.contenido.length > 500) {
-      throw new BadRequestException('El mensaje excede el límite de 500 caracteres.');
-    }
-
-    // 1. Obtener la lista de ciudadanos aplicando la lógica de IDs de BoletoService
-    const destinatarios = await this.boletoService.obtenerDestinatariosAlerta(dto.alcanceTipo, dto.alcanceId);
-
-    // 2. Persistir el Mensaje Base de la Alerta
-    const nuevaAlerta = this.mensajeRepository.create({
-      contenido: dto.contenido,
-      emisor: { id: emisorId } as Persona,
-      esUrgente: !!dto.esUrgente,
-      alcanceTipo: dto.alcanceTipo,
-      alcanceId: dto.alcanceId,
-      fechaEnvio: dto.programadoPara ? new Date(dto.programadoPara) : new Date(),
-    });
-
-    const alertaGuardada = await this.mensajeRepository.save(nuevaAlerta);
-
-    // 3. Si el mensaje es URGENTE y NO está programado para el futuro, genera Push inmediato
-    if (dto.esUrgente && !dto.programadoPara) {
-      for (const ciudadano of destinatarios) {
-        // Vinculamos usando la clase Persona que hereda o se asocia al ciudadano
-        const personaDestino = { id: ciudadano.id } as Persona; 
-        
-        // Ejecutamos tu NotificacionService existente para simular la Push inmediata
-        await this.notificacionService.crearNotificacion(
-          personaDestino,
-          '🚨 ALERTA MASIVA URGENTE',
-          dto.contenido
-        ).catch(err => console.error(`Error enviando push al usuario ${ciudadano.id}:`, err));
-      }
-    }
-
-    // Retornamos estadísticas iniciales de entrega tal como pide la HU
-    return {
-      mensajeId: alertaGuardada.id,
-      estado: dto.programadoPara ? 'programado' : 'enviado',
-      fechaEnvio: alertaGuardada.fechaEnvio,
-      estadisticas: {
-        totalDestinatarios: destinatarios.length,
-        entregados: dto.programadoPara ? 0 : destinatarios.length,
-        leidos: 0
-      }
-    };
+async enviarAlertaMasiva(emisorId: string, dto: CreateAlertaMasivaDto) {
+  if (dto.contenido && dto.contenido.length > 500) {
+    throw new BadRequestException('El mensaje excede el límite de 500 caracteres.');
   }
+
+  const destinatarios = await this.boletoService.obtenerDestinatariosAlerta(dto.alcanceTipo, dto.alcanceId);
+
+  const nuevaAlerta = this.mensajeRepository.create({
+    contenido: dto.contenido,
+    emisor: { id: emisorId } as Persona,
+    esUrgente: !!dto.esUrgente,
+    alcanceTipo: dto.alcanceTipo,
+    alcanceId: dto.alcanceId,
+    fechaEnvio: dto.programadoPara ? new Date(dto.programadoPara) : new Date(),
+    programadoPara: dto.programadoPara ? new Date(dto.programadoPara) : undefined,
+  });
+
+  const alertaGuardada = await this.mensajeRepository.save(nuevaAlerta);
+
+  if (!dto.programadoPara) {
+    for (const ciudadano of destinatarios) {
+      await this.notificacionService.crearNotificacion(
+        { id: ciudadano.id } as Persona,
+        `🚨 ALERTA#${alertaGuardada.id}`,
+        dto.contenido
+      ).catch(err => console.error(`Error enviando push al usuario ${ciudadano.id}:`, err));
+    }
+  }
+
+  return {
+    mensajeId: alertaGuardada.id,
+    estado: dto.programadoPara ? 'programado' : 'enviado',
+    fechaEnvio: alertaGuardada.fechaEnvio,
+    destinatariosIds: dto.alcanceTipo === AlcanceAlerta.TODOS
+      ? []
+      : destinatarios.map(d => d.id as string),
+    estadisticas: {
+      totalDestinatarios: destinatarios.length,
+      entregados: dto.programadoPara ? 0 : destinatarios.length,
+      leidos: 0
+    }
+  };
+}
 
   // =========================================================================
   // ✨ NUEVO: HU-ENTR-3-008 - Obtener estadísticas de entrega y lectura
   // =========================================================================
-  async obtenerEstadisticasAlerta(mensajeId: number) {
-    const mensaje = await this.mensajeRepository.findOne({
-      where: { id: mensajeId }
-    });
+async obtenerEstadisticasAlerta(mensajeId: number) {
+  const mensaje = await this.mensajeRepository.findOne({
+    where: { id: mensajeId }
+  });
 
-    if (!mensaje) {
-      throw new BadRequestException('La alerta especificada no existe.');
-    }
-
-    // Para las estadísticas de lectura reales en comunicación masiva unidireccional,
-    // se calcularían mapeando la interacción o basándose en el alcance original.
-    // Retornamos la estructura lista para el Front-end
-    return {
-      id: mensaje.id,
-      contenido: mensaje.contenido,
-      fechaEnvio: mensaje.fechaEnvio,
-      esUrgente: mensaje.esUrgente,
-      alcanceTipo: mensaje.alcanceTipo,
-      estadisticas: {
-        totalDestinatarios: 100, // Aquí iría el conteo dinámico basado en tu tabla intermedia
-        entregados: 100,
-        leidos: mensaje.leidoAt ? 1 : 0
-      }
-    };
+  if (!mensaje) {
+    throw new BadRequestException('La alerta especificada no existe.');
   }
+
+  const resultado = mensaje.alcanceTipo
+    ? await this.boletoService.contarDestinatariosAlerta(mensaje.alcanceTipo, mensaje.alcanceId ?? undefined)
+    : { total: 0 };
+  const total = resultado?.total ?? 0;
+
+const lecturas = await this.notificacionService.contarLecturasAlerta(mensajeId);
+const esProgramado = mensaje.programadoPara && new Date(mensaje.programadoPara) > new Date();
+
+return {
+  id: mensaje.id,
+  contenido: mensaje.contenido,
+  fechaEnvio: mensaje.fechaEnvio,
+  esUrgente: mensaje.esUrgente,
+  alcanceTipo: mensaje.alcanceTipo,
+  estado: esProgramado ? 'programado' : 'enviado',
+  estadisticas: {
+    totalDestinatarios: total,
+    entregados: esProgramado ? 0 : total,
+    leidos: lecturas.leidas
+  }
+};
+}
+  
+async obtenerTodasAlertas() {
+  const alertas = await this.mensajeRepository.find({
+    where: { alcanceTipo: Not(IsNull()) },
+    order: { fechaEnvio: 'DESC' },
+  });
+
+  return Promise.all(alertas.map(async (m) => {
+    const resultado = m.alcanceTipo
+      ? await this.boletoService.contarDestinatariosAlerta(m.alcanceTipo, m.alcanceId ?? undefined)
+      : { total: 0 };
+    const total = resultado?.total ?? 0;
+    const esProgramado = m.programadoPara && new Date(m.programadoPara) > new Date();
+    const lecturas = await this.notificacionService.contarLecturasAlerta(m.id!);
+
+    return {
+      id: m.id,
+      contenido: m.contenido,
+      fechaEnvio: m.fechaEnvio,
+      esUrgente: m.esUrgente,
+      alcanceTipo: m.alcanceTipo,
+      estado: esProgramado ? 'programado' : 'enviado',
+      estadisticas: { totalDestinatarios: total, entregados: esProgramado ? 0 : total, leidos: lecturas.leidas }
+    };
+  }));
+}
+  
 }

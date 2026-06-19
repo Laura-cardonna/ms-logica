@@ -189,4 +189,28 @@ export class MensajeGateway {
     this.server.to(roomName).emit('mensajeEliminado', { mensajeId, grupoId });
     console.log(`🗑️ Mensaje ${mensajeId} eliminado; refresco emitido a ${roomName}`);
   }
+
+  // HU-ENTR-3-008: emite la alerta masiva vía WebSocket en tiempo real.
+  // Si destinatariosIds está vacío → alcance TODOS → server.emit global.
+  // Si viene con IDs → alcance RUTA/ZONA → emit solo a sus salas personales.
+emitirAlertaMasiva(
+  payload: {
+    id: number;
+    contenido: string;
+    esUrgente: boolean;
+    alcanceTipo: string;
+    fechaEnvio: Date;
+    emisorId: string;
+  },
+  destinatariosIds: string[],
+) {
+  if (destinatariosIds.length === 0) {
+    this.server.emit('alertaMasiva', payload);
+  } else {
+    for (const id of destinatariosIds) {
+      this.server.to(`user_${id}`).emit('alertaMasiva', payload);
+    }
+  }
+  console.log(`📢 Alerta masiva emitida: id=${payload.id} → ${destinatariosIds.length === 0 ? 'todos' : `${destinatariosIds.length} destinatarios`}`);
+}
 }

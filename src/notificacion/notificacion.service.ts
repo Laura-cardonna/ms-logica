@@ -36,4 +36,20 @@ export class NotificacionService {
       where: { persona: { id: personaId }, leida: false },
     });
   }
+
+ async contarLecturasAlerta(mensajeId: number): Promise<{ total: number; leidas: number }> {
+    const titulo = `🚨 ALERTA#${mensajeId}`;
+    const total = await this.notificacionRepository.count({ where: { titulo } });
+    const leidas = await this.notificacionRepository.count({ where: { titulo, leida: true } });
+    return { total, leidas };
+  }
+
+  async marcarAlertaComoLeida(mensajeId: number, personaId: string): Promise<void> {
+    const titulo = `🚨 ALERTA#${mensajeId}`;
+    await this.notificacionRepository.update(
+      { titulo, persona: { id: personaId } },
+      { leida: true },
+    );
+  }
+  
 }

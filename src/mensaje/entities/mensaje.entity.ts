@@ -41,6 +41,25 @@ export class Mensaje {
     @Column({ nullable: true, type: 'text' })
     ubicacion?: string;
 
+// =========================================================================
+    // 🌟 NUEVOS CAMPOS PARA HU-ENTR-3-008 (Alerta Masiva)
+    // =========================================================================
+    @Column({ name: 'es_urgente', type: 'boolean', default: false })
+    esUrgente?: boolean;
+
+    @Column({ name: 'programado_para', type: 'timestamp', nullable: true })
+    programadoPara?: Date;
+
+    @Column({
+      name: 'alcance_tipo',
+      type: 'enum',
+      enum: AlcanceAlerta,
+      nullable: true,
+    })
+    alcanceTipo?: AlcanceAlerta;
+
+    @Column({ name: 'alcance_id', type: 'varchar', nullable: true })
+    alcanceId?: string; // Guardará el ID de la Ruta o Zona seleccionada (si aplica)
     // Soft-delete (HU-3-005): borrado por admin. Columna manual (NO
     // @DeleteDateColumn) porque el historial mapea relaciones a mano vía
     // DestinatarioGrupo; filtramos deletedAt explícito en cada query.

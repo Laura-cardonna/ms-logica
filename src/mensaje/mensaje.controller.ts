@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Delete, Body, Param, Query } from '@nestjs/common';
 import { MensajeService } from './mensaje.service';
 import { MensajeGateway } from './mensaje.gateway';
+import { CreateAlertaMasivaDto } from './dto/create-alerta-masiva.dto';
 
 @Controller('mensajes')
 export class MensajeController {
@@ -70,5 +71,56 @@ export class MensajeController {
     this.mensajeGateway.notificarMensajeEliminado(res.grupoId, res.mensajeId);
     return res;
   }
+
+  // =========================================================================
+  // ✨ NUEVO: HU-ENTR-3-008 - Obtener contador previo de destinatarios
+  // =========================================================================
+  @Get('alerta-masiva/contador')
+  obtenerContadorAlerta(
+    @Query('alcanceTipo') alcanceTipo: any,
+    @Query('alcanceId') alcanceId?: string,
+  ) {
+    return this.mensajeService.obtenerContadorDestinatarios(alcanceTipo, alcanceId);
+  }
+
+  // =========================================================================
+  // ✨ NUEVO: HU-ENTR-3-008 - Crear y enviar alerta masiva
+  // =========================================================================
+@Post('alerta-masiva/enviar')
+async enviarAlertaMasiva(
+  @Query('adminId') adminId: string,
+  @Body() body: CreateAlertaMasivaDto,
+) {
+  const resultado = await this.mensajeService.enviarAlertaMasiva(adminId, body);
+
+  if (!body.programadoPara) {
+    this.mensajeGateway.emitirAlertaMasiva(
+      {
+        id: resultado.mensajeId!,
+        contenido: body.contenido,
+        esUrgente: !!body.esUrgente,
+        alcanceTipo: body.alcanceTipo,
+        fechaEnvio: resultado.fechaEnvio!,
+        emisorId: adminId,
+      },
+      resultado.destinatariosIds,
+    );
+  }
+
+  return resultado;
+}
+
+  // =========================================================================
+  // ✨ NUEVO: HU-ENTR-3-008 - Visualizar estadísticas de entrega y lectura
+  // =========================================================================
+  @Get('alerta-masiva/:id/estadisticas')
+  obtenerEstadisticasAlerta(@Param('id') id: number) {
+    return this.mensajeService.obtenerEstadisticasAlerta(id);
+  }
+  
+  @Get('alertas-masivas')
+obtenerTodasAlertas() {
+  return this.mensajeService.obtenerTodasAlertas();
+}
 
 }

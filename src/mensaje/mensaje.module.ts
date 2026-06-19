@@ -8,14 +8,19 @@ import { LecturaGrupo } from './entities/lectura_grupo.entity'; // 👈 HU-3-005
 import { MensajeGateway } from './mensaje.gateway'; // <-- Importamos el Gateway
 import { GrupoPersona } from 'src/grupo_persona/entities/grupo_persona.entity'; // <-- Importamos la entidad para el repositorio
 import { GrupoMembresiaLog } from 'src/grupo/entities/grupo-membresia-log.entity'; // 👈 1. IMPORTA LA ENTIDAD AQUÍ
-
+// 🌟 Módulos externos necesarios
+import { BoletoModule } from 'src/boleto/boleto.module'; 
+import { NotificacionModule } from 'src/notificacion/notificacion.module';
+import { AlertaSchedulerService } from './alerta-scheduler.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Mensaje, DestinatarioGrupo, LecturaGrupo, GrupoPersona, GrupoMembresiaLog])
+    TypeOrmModule.forFeature([Mensaje, DestinatarioGrupo, LecturaGrupo, GrupoPersona, GrupoMembresiaLog]),
+    BoletoModule, // Permite usar BoletoService
+    NotificacionModule,
   ],
   controllers: [MensajeController],
-  providers: [MensajeService, MensajeGateway], // GrupoPersona es entidad, no provider
-  exports: [MensajeService, MensajeGateway], // <-- Exportamos el servicio y el gateway para que otros módulos puedan usarlos
+  providers: [MensajeService, MensajeGateway, AlertaSchedulerService], // GrupoPersona es entidad, no provider
+  exports: [MensajeService, MensajeGateway, AlertaSchedulerService], // <-- Exportamos el servicio y el gateway para que otros módulos puedan usarlos
 })
 export class MensajeModule {}
