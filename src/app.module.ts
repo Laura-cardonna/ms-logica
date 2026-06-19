@@ -37,6 +37,7 @@ import { NotificacionModule } from './notificacion/notificacion.module';
 import { NotificacionSuscripcionModule } from './notificacion-suscripcion/notificacion-suscripcion.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AlertaClimaModule } from './alerta-clima/alerta-clima.module';
+import { PqrsModule } from './pqrs/pqrs.module';
 
 @Module({
   imports: [
@@ -101,6 +102,7 @@ import { AlertaClimaModule } from './alerta-clima/alerta-clima.module';
     NotificacionSuscripcionModule,
     ScheduleModule.forRoot(),
     AlertaClimaModule,
+    PqrsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -98,10 +98,13 @@ export class PqrsService {
         );
       }
 
-      // 7. Enviar a N8N de forma asíncrona (no bloquea al usuario)
-      axios.post(n8nUrl, n8nPayload).catch((err) => {
-        console.error('Error enviando datos a N8N:', err.message);
-      });
+      // 7. Enviar a N8N (con log completo para diagnóstico)
+      console.log(`📡 [PQRS] Llamando a N8N: ${n8nUrl}`);
+      axios.post(n8nUrl, n8nPayload)
+        .then((res) => console.log(`✅ [PQRS] N8N respondió ${res.status}:`, res.data))
+        .catch((err) => {
+          console.error(`❌ [PQRS] Fallo al llamar a N8N (${n8nUrl}):`, err?.response?.status, err?.response?.data || err.message);
+        });
 
       // Retornar respuesta estructurada al Frontend en Angular
       return {
