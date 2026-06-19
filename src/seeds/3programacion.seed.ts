@@ -104,6 +104,107 @@ export async function seedProgramaciones(dataSource: DataSource) {
       bus: buses[2],
       ruta: rutas[0],
     },
+    {
+      // Ruta Centro - Chipre (Madrugada de hoy - Ya finalizada)
+      fecha: today,
+      horaSalida: '05:30',
+      horaLlegada: addMinutesToTime('05:30', Number(rutas[4]?.duracionEstimada ?? 20)),
+      duracionEstimada: Number(rutas[4]?.duracionEstimada ?? 20),
+      estado: EstadoProgramacion.PROGRAMADO, // Cambiar a tu Estado correspondiente a FINALIZADO si posees uno, de lo contrario programado
+      bus: buses[3],
+      ruta: rutas[4],
+    },
+    {
+      // Ruta Universitaria en curso (Hora pico de la mañana)
+      fecha: today,
+      horaSalida: '07:15',
+      horaLlegada: addMinutesToTime('07:15', Number(rutas[5]?.duracionEstimada ?? 45)),
+      duracionEstimada: Number(rutas[5]?.duracionEstimada ?? 45),
+      estado: EstadoProgramacion.EN_CURSO,
+      margenToleranciaMinutos: 5,
+      bus: buses[4],
+      ruta: rutas[5],
+    },
+    {
+      // Ruta Avenida Santander - La Enea (Hora pico del mediodía)
+      fecha: today,
+      horaSalida: '12:10',
+      horaLlegada: addMinutesToTime('12:10', Number(rutas[6]?.duracionEstimada ?? 50)),
+      duracionEstimada: Number(rutas[6]?.duracionEstimada ?? 50),
+      estado: EstadoProgramacion.PROGRAMADO,
+      bus: buses[5],
+      ruta: rutas[6],
+    },
+    {
+      // Refuerzo en horario de la tarde para el Sur
+      fecha: today,
+      horaSalida: '15:15',
+      horaLlegada: addMinutesToTime('15:15', Number(rutas[0].duracionEstimada ?? 35)),
+      duracionEstimada: Number(rutas[0].duracionEstimada ?? 35),
+      estado: EstadoProgramacion.PROGRAMADO,
+      bus: buses[6],
+      ruta: rutas[0],
+    },
+    {
+      // Ruta Nocturna Centro - Norte
+      fecha: today,
+      horaSalida: '20:00',
+      horaLlegada: addMinutesToTime('20:00', Number(rutas[1].duracionEstimada ?? 40)),
+      duracionEstimada: Number(rutas[1].duracionEstimada ?? 40),
+      estado: EstadoProgramacion.PROGRAMADO,
+      bus: buses[7],
+      ruta: rutas[1],
+    },
+    {
+      // MAÑANA: Operación Temprana Villamaría
+      fecha: tomorrow,
+      horaSalida: '06:15',
+      horaLlegada: addMinutesToTime('06:15', Number(rutas[2]?.duracionEstimada ?? 30)),
+      duracionEstimada: Number(rutas[2]?.duracionEstimada ?? 30),
+      estado: EstadoProgramacion.PROGRAMADO,
+      bus: buses[8],
+      ruta: rutas[2],
+    },
+    {
+      // MAÑANA: Universitaria Turno Mañana
+      fecha: tomorrow,
+      horaSalida: '07:45',
+      horaLlegada: addMinutesToTime('07:45', Number(rutas[5]?.duracionEstimada ?? 45)),
+      duracionEstimada: Number(rutas[5]?.duracionEstimada ?? 45),
+      estado: EstadoProgramacion.PROGRAMADO,
+      bus: buses[9],
+      ruta: rutas[5],
+    },
+    {
+      // MAÑANA: Circular Manizales Completa
+      fecha: tomorrow,
+      horaSalida: '09:00',
+      horaLlegada: addMinutesToTime('09:00', Number(rutas[3].duracionEstimada ?? 90)),
+      duracionEstimada: Number(rutas[3].duracionEstimada ?? 90),
+      estado: EstadoProgramacion.PROGRAMADO,
+      bus: buses[10],
+      ruta: rutas[3],
+    },
+    {
+      // MAÑANA: Ruta Centro - Villa Pilar
+      fecha: tomorrow,
+      horaSalida: '11:30',
+      horaLlegada: addMinutesToTime('11:30', Number(rutas[4]?.duracionEstimada ?? 20)),
+      duracionEstimada: Number(rutas[4]?.duracionEstimada ?? 20),
+      estado: EstadoProgramacion.PROGRAMADO,
+      bus: buses[11],
+      ruta: rutas[4],
+    },
+    {
+      // MAÑANA: Ruta Expresa Cable Aéreo - Centro (Tarde)
+      fecha: tomorrow,
+      horaSalida: '17:15',
+      horaLlegada: addMinutesToTime('17:15', Number(rutas[6]?.duracionEstimada ?? 50)),
+      duracionEstimada: Number(rutas[6]?.duracionEstimada ?? 50),
+      estado: EstadoProgramacion.PROGRAMADO,
+      bus: buses[12],
+      ruta: rutas[6],
+    },
   ];
 
   for (const programacion of programaciones) {

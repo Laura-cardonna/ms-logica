@@ -25,6 +25,26 @@ export async function seedNodos(dataSource: DataSource) {
       latitud: 5.07,
       longitud: -75.5,
     },
+    {
+      nombre: 'Nodo Occidente (Chipre/Villa Pilar)',
+      latitud: 5.0745,
+      longitud: -75.5281,
+    },
+    {
+      nombre: 'Nodo Universitario (Palermo/Cable)',
+      latitud: 5.0560,
+      longitud: -75.4950,
+    },
+    {
+      nombre: 'Nodo Villamaría',
+      latitud: 5.0435,
+      longitud: -75.5153,
+    },
+    {
+      nombre: 'Nodo Industrial (Maltería)',
+      latitud: 5.0321,
+      longitud: -75.4389,
+    },
   ];
 
   for (const nodo of nodos) {

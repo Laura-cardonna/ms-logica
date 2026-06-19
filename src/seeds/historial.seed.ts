@@ -35,6 +35,46 @@ export async function seedHistoriales(dataSource: DataSource) {
       descripcion: 'Revisión de infraestructura de terminales',
       nodo: nodos[3],
     },
+    {
+      descripcion: 'Reparación de validador de tarjetas de recaudo',
+      nodo: nodos[0],
+    },
+    {
+      descripcion: 'Sustitución de luminarias LED en plataforma de abordaje',
+      nodo: nodos[1] ?? nodos[0],
+    },
+    {
+      descripcion: 'Mantenimiento correctivo del sistema de cámaras de seguridad CCTV',
+      nodo: nodos[2] ?? nodos[0],
+    },
+    {
+      descripcion: 'Pintura general y demarcación de zonas de espera',
+      nodo: nodos[3] ?? nodos[0],
+    },
+    {
+      descripcion: 'Instalación de nueva pantalla digital de información al usuario',
+      nodo: nodos[4] ?? nodos[0],
+    },
+    {
+      descripcion: 'Calibración y lubricación de torniquetes de acceso',
+      nodo: nodos[1] ?? nodos[0],
+    },
+    {
+      descripcion: 'Jornada de limpieza profunda y desinfección de la estación',
+      nodo: nodos[2] ?? nodos[0],
+    },
+    {
+      descripcion: 'Revisión de cableado estructurado y reparación de red Wi-Fi pública',
+      nodo: nodos[5] ?? nodos[0],
+    },
+    {
+      descripcion: 'Auditoría de infraestructura para accesibilidad de personas con movilidad reducida',
+      nodo: nodos[0],
+    },
+    {
+      descripcion: 'Reparación de cubiertas por reporte de filtración de aguas lluvias',
+      nodo: nodos[3] ?? nodos[0],
+    },
   ];
 
   // ✅ Versión corregida y segura contra duplicados:

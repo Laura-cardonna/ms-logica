@@ -49,6 +49,76 @@ export async function seedParaderos(dataSource: DataSource) {
       longitud: -75.5072,
       nodo: nodos[1] ?? nodos[0],
     },
+    {
+      nombre: 'Paradero Monumento a los Colonizadores',
+      descripcion: 'Paradero turístico en el sector de Chipre',
+      latitud: 5.0751,
+      longitud: -75.5298,
+      nodo: nodos[4] ?? nodos[0], // Nodo Occidente si existe
+    },
+    {
+      nombre: 'Paradero Universidad Nacional',
+      descripcion: 'Paradero frente al campus central de la Universidad Nacional',
+      latitud: 5.0573,
+      longitud: -75.4991,
+      nodo: nodos[5] ?? nodos[0], // Nodo Universitario
+    },
+    {
+      nombre: 'Paradero Universidad de Caldas',
+      descripcion: 'Paradero principal sede central Universidad de Caldas',
+      latitud: 5.0560,
+      longitud: -75.4950,
+      nodo: nodos[5] ?? nodos[0], // Nodo Universitario
+    },
+    {
+      nombre: 'Paradero Clínica Villapilar',
+      descripcion: 'Paradero de acceso a la zona hospitalaria y residencial occidente',
+      latitud: 5.0712,
+      longitud: -75.5345,
+      nodo: nodos[4] ?? nodos[0], // Nodo Occidente
+    },
+    {
+      nombre: 'Paradero Parque del Agua',
+      descripcion: 'Paradero intermedio conectando Avenida Santander',
+      latitud: 5.0632,
+      longitud: -75.5078,
+      nodo: nodos[0], // Terminal / Centro
+    },
+    {
+      nombre: 'Paradero Plaza Principal Villamaría',
+      descripcion: 'Paradero central en el municipio vecino de Villamaría',
+      latitud: 5.0435,
+      longitud: -75.5153,
+      nodo: nodos[6] ?? nodos[0], // Nodo Villamaría
+    },
+    {
+      nombre: 'Paradero Milán',
+      descripcion: 'Paradero final de la zona rosa y gastronómica',
+      latitud: 5.0498,
+      longitud: -75.4851,
+      nodo: nodos[5] ?? nodos[0], // Nodo Universitario / Este
+    },
+    {
+      nombre: 'Paradero Bosques del Norte',
+      descripcion: 'Paradero en la comuna Ciudadela del Norte',
+      latitud: 5.0851,
+      longitud: -75.5012,
+      nodo: nodos[2] ?? nodos[0], // Nodo Norte
+    },
+    {
+      nombre: 'Paradero San Jorge',
+      descripcion: 'Paradero sector residencial San Jorge',
+      latitud: 5.0678,
+      longitud: -75.5098,
+      nodo: nodos[0], 
+    },
+    {
+      nombre: 'Paradero Sena Maltería',
+      descripcion: 'Paradero en la zona industrial de Manizales',
+      latitud: 5.0321,
+      longitud: -75.4389,
+      nodo: nodos[7] ?? nodos[0], // Nodo Industrial
+    },
   ];
 
   let count = 0;

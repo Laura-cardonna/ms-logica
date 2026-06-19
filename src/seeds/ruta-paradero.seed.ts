@@ -15,6 +15,12 @@ export async function seedRutasParaderos(dataSource: DataSource) {
   const rutaCentroNorte = await rutaRepository.findOne({
     where: { nombre: 'Ruta Centro - Norte' },
   });
+  const rutaCentroEste = await rutaRepository.findOne({
+    where: { nombre: 'Ruta Centro - Este' },
+  });
+  const rutaCircular = await rutaRepository.findOne({
+    where: { nombre: 'Ruta Circular Manizales' },
+  });
   const paraderos = await paraderoRepository.find();
 
   if (!rutaCentroSur || !rutaCentroNorte || paraderos.length < 3) {
