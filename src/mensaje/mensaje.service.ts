@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
-import { Mensaje, AlcanceAlerta } from './entities/mensaje.entity';
+import { Repository, IsNull, In } from 'typeorm';
+import { Mensaje } from './entities/mensaje.entity';
 import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
+import { LecturaGrupo } from './entities/lectura_grupo.entity';
 import { Persona } from 'src/persona/entities/persona.entity';
 import { Grupo } from 'src/grupo/entities/grupo.entity';
 import { GrupoPersona } from 'src/grupo_persona/entities/grupo_persona.entity';
@@ -21,9 +22,12 @@ export class MensajeService {
     @InjectRepository(DestinatarioGrupo)
     private readonly destGrupoRepository: Repository<DestinatarioGrupo>,
 
+    @InjectRepository(LecturaGrupo)
+    private readonly lecturaGrupoRepository: Repository<LecturaGrupo>,
+
     @InjectRepository(GrupoPersona)
     private readonly grupoPersonaRepository: Repository<GrupoPersona>,
-  
+
     @InjectRepository(GrupoMembresiaLog)
     private readonly logRepository: Repository<GrupoMembresiaLog>,
     // 🌟 Nuevas Inyecciones para HU-ENTR-3-008
@@ -90,6 +94,83 @@ export class MensajeService {
     throw new Error('Mensaje no encontrado');
   }
 
+  // ==========================================
+  // ✨ HU-3-005: Lecturas por miembro (quién leyó un mensaje de grupo)
+  // ==========================================
+  // Registra que `lectorId` leyó `mensajeId`. Idempotente: el @Unique(mensaje,
+  // persona) evita duplicados aunque el cliente reemita marcarMensajeLeido.
+  async registrarLecturaGrupo(mensajeId: number, lectorId: string) {
+    const yaExiste = await this.lecturaGrupoRepository.findOne({
+      where: { mensaje: { id: mensajeId }, persona: { id: lectorId } },
+    });
+    if (yaExiste) return yaExiste;
+
+    const lectura = this.lecturaGrupoRepository.create({
+      mensaje: { id: mensajeId } as Mensaje,
+      persona: { id: lectorId } as Persona,
+    });
+
+    try {
+      return await this.lecturaGrupoRepository.save(lectura);
+    } catch (err: any) {
+      // Carrera concurrente: dos lecturas a la vez chocan con el unique. La
+      // idempotencia la garantiza la DB; devolvemos la existente sin romper.
+      const existente = await this.lecturaGrupoRepository.findOne({
+        where: { mensaje: { id: mensajeId }, persona: { id: lectorId } },
+      });
+      if (existente) return existente;
+      throw err;
+    }
+  }
+
+  // Lista plana de quién leyó (vista emisor/admin). Aplanamos personaId/nombre
+  // — NO devolver la entidad cruda ([[mensaje-flat-shape-gotcha]]).
+  async obtenerLecturas(mensajeId: number) {
+    const lecturas = await this.lecturaGrupoRepository.find({
+      where: { mensaje: { id: mensajeId } },
+      relations: ['persona'],
+      order: { fechaLeida: 'ASC' },
+    });
+
+    return lecturas.map(l => ({
+      personaId: l.persona?.id,
+      nombre: l.persona?.nombre,
+      fechaLeida: l.fechaLeida,
+    }));
+  }
+
+  // ==========================================
+  // ✨ HU-3-005: Borrado por administrador (soft-delete)
+  // ==========================================
+  // Marca deletedAt sólo si `personaId` es administrador del grupo del mensaje.
+  // Devuelve { mensajeId, grupoId } para que el gateway refresque la sala.
+  async eliminarMensajeGrupo(mensajeId: number, personaId: string) {
+    const destino = await this.destGrupoRepository.findOne({
+      where: { mensaje: { id: mensajeId } },
+      relations: ['grupo'],
+    });
+    if (!destino || !destino.grupo?.id) {
+      throw new NotFoundException('Mensaje de grupo no encontrado.');
+    }
+    const grupoId = destino.grupo.id;
+
+    const membresia = await this.grupoPersonaRepository.findOne({
+      where: { grupo: { id: grupoId }, persona: { id: String(personaId) } },
+    });
+    if (!membresia || membresia.rol !== 'administrador') {
+      throw new ForbiddenException('Sólo un administrador del grupo puede eliminar mensajes.');
+    }
+
+    const mensaje = await this.mensajeRepository.findOne({ where: { id: mensajeId } });
+    if (!mensaje) {
+      throw new NotFoundException('Mensaje no encontrado.');
+    }
+    mensaje.deletedAt = new Date();
+    await this.mensajeRepository.save(mensaje);
+
+    return { mensajeId, grupoId };
+  }
+
   // 👇 MÉTODO ORIGINAL ACTUALIZADO: Enviar mensaje a un grupo 👇
   async enviarMensajeAGrupo(emisorId: string, grupoId: number, contenido: string) {
     // 🚨 Validación estricta de 500 caracteres (agregada aquí también)
@@ -143,15 +224,34 @@ export class MensajeService {
       order: { mensaje: { fechaEnvio: 'ASC' } },
     });
 
-    // Mapeamos los mensajes iniciales
-    const todosLosMensajes = relaciones.map(rel => ({
+    // Mapeamos los mensajes iniciales (excluyendo los borrados por admin)
+    const todosLosMensajes = relaciones
+      .filter(rel => !rel.mensaje?.deletedAt)
+      .map(rel => ({
       id: rel.mensaje?.id,
       contenido: rel.mensaje?.contenido,
       fechaEnvio: rel.mensaje?.fechaEnvio,
       leidoAt: rel.mensaje?.leidoAt,
       emisorNombre: rel.mensaje?.emisor?.nombre,
       emisorId: rel.mensaje?.emisor?.id,
+      lecturasCount: 0, // HU-3-005: nº de miembros que leyeron (se rellena abajo)
     }));
+
+    // 2b. HU-3-005: contar lecturas por miembro de estos mensajes en una sola
+    // query, para que el front muestre "Leído por N" sin pedir el detalle.
+    const ids = todosLosMensajes.map(m => m.id).filter((id): id is number => !!id);
+    if (ids.length > 0) {
+      const lecturas = await this.lecturaGrupoRepository.find({
+        where: { mensaje: { id: In(ids) } },
+        relations: ['mensaje'],
+      });
+      const conteo = new Map<number, number>();
+      for (const l of lecturas) {
+        const mid = l.mensaje?.id;
+        if (mid) conteo.set(mid, (conteo.get(mid) ?? 0) + 1);
+      }
+      todosLosMensajes.forEach(m => { if (m.id) m.lecturasCount = conteo.get(m.id) ?? 0; });
+    }
 
     // 3. Aplicar filtro inteligente de historial basado en el rol de la membresía
     if (membresia && personaId) {
@@ -276,7 +376,7 @@ mensajesDirectos = directos.map(msg => ({
       });
 
      mensajesGrupales = relacionesGrupo
-  .filter(rel => rel.mensaje && rel.mensaje.emisor?.id !== personaId)
+  .filter(rel => rel.mensaje && !rel.mensaje.deletedAt && rel.mensaje.emisor?.id !== personaId)
   .map(rel => {
     const msg = rel.mensaje!;
     return {
@@ -338,6 +438,7 @@ mensajesDirectos = directos.map(msg => ({
         if (
           rel.mensaje &&
           rel.mensaje.id &&
+          !rel.mensaje.deletedAt &&
           !rel.mensaje.leidoAt &&
           rel.mensaje.emisor?.id !== personaId &&
           !mensajesUnicosContados.has(rel.mensaje.id)

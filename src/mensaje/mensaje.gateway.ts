@@ -160,19 +160,33 @@ export class MensajeGateway {
   // ✨ AQUÍ INTEGRAMOS LA BASE DE DATOS SIN TOCAR TUS PARÁMETROS ORIGINALES
   @SubscribeMessage('marcarMensajeLeido')
   async handleMensajeLeido(
-    @MessageBody() data: { mensajeId: number; emisorOriginalId: string; fechaLeido: Date },
+    @MessageBody() data: { mensajeId: number; emisorOriginalId: string; fechaLeido: Date; lectorId?: string },
   ) {
     try {
       // 1. Guardar la fecha real de lectura en MySQL usando tu MensajeService
       await this.mensajeService.marcarComoLeido(data.mensajeId);
 
+      // 1b. HU-3-005: si viene lectorId, registrar lectura POR MIEMBRO (grupos).
+      // DM no manda lectorId → sólo marca el leidoAt binario de arriba.
+      if (data.lectorId) {
+        await this.mensajeService.registrarLecturaGrupo(data.mensajeId, data.lectorId);
+      }
+
       // 2. Avisar en tiempo real al usuario original para que le ponga el "check azul"
       const roomEmisorOriginal = `user_${data.emisorOriginalId}`;
       this.server.to(roomEmisorOriginal).emit('mensajeLeidoConfirmado', data);
-      
+
       console.log(`✅ Mensaje ${data.mensajeId} marcado como leído en BD y notificado.`);
     } catch (error) {
       console.error('Error al confirmar lectura:', error);
     }
+  }
+
+  // ✨ HU-3-005: tras borrado por admin, refrescar la sala del grupo para que el
+  // mensaje desaparezca en vivo. Nombre de evento EXACTO ↔ listener del front.
+  notificarMensajeEliminado(grupoId: number, mensajeId: number) {
+    const roomName = `grupo_${grupoId}`;
+    this.server.to(roomName).emit('mensajeEliminado', { mensajeId, grupoId });
+    console.log(`🗑️ Mensaje ${mensajeId} eliminado; refresco emitido a ${roomName}`);
   }
 }
