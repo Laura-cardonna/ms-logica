@@ -41,28 +41,23 @@ export class Mensaje {
     @Column({ nullable: true, type: 'text' })
     ubicacion?: string;
 
-// =========================================================================
-    // 🌟 NUEVOS CAMPOS PARA HU-ENTR-3-008 (Alerta Masiva)
-    // =========================================================================
-    @Column({ name: 'es_urgente', type: 'boolean', default: false })
-    esUrgente?: boolean;
-
-    @Column({ name: 'programado_para', type: 'timestamp', nullable: true })
-    programadoPara?: Date;
-
-    @Column({
-      name: 'alcance_tipo',
-      type: 'enum',
-      enum: AlcanceAlerta,
-      nullable: true,
-    })
-    alcanceTipo?: AlcanceAlerta;
-
-    @Column({ name: 'alcance_id', type: 'varchar', nullable: true })
-    alcanceId?: string; // Guardará el ID de la Ruta o Zona seleccionada (si aplica)
     // Soft-delete (HU-3-005): borrado por admin. Columna manual (NO
     // @DeleteDateColumn) porque el historial mapea relaciones a mano vía
     // DestinatarioGrupo; filtramos deletedAt explícito en cada query.
     @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
     deletedAt?: Date | null;
+
+    // HU-3-008 (Alerta Masiva): marca de urgencia y alcance de la difusión.
+    @Column({ name: 'es_urgente', type: 'boolean', default: false })
+    esUrgente?: boolean;
+
+    // Fecha de envío programado (si la alerta se agenda para el futuro).
+    @Column({ name: 'programado_para', type: 'timestamp', nullable: true })
+    programadoPara?: Date;
+
+    @Column({ name: 'alcance_tipo', type: 'enum', enum: AlcanceAlerta, nullable: true })
+    alcanceTipo?: AlcanceAlerta;
+
+    @Column({ name: 'alcance_id', type: 'varchar', nullable: true })
+    alcanceId?: string;
 }

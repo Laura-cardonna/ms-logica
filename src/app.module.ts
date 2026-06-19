@@ -36,6 +36,7 @@ import { MonitoreoModule } from './monitoreo/monitoreo.module';
 import { NotificacionModule } from './notificacion/notificacion.module';
 import { NotificacionSuscripcionModule } from './notificacion-suscripcion/notificacion-suscripcion.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AlertaClimaModule } from './alerta-clima/alerta-clima.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ScheduleModule } from '@nestjs/schedule';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -98,6 +100,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     NotificacionModule,
     NotificacionSuscripcionModule,
     ScheduleModule.forRoot(),
+    AlertaClimaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
