@@ -41,7 +41,8 @@ export class AlertaClimaController {
   // Disparo manual del grafo de clima (demo/verificación end-to-end).
   @Post('run')
   run() {
-    return this.orquestador.ejecutar();
+    // Demo/verificación: fuerza el envío a todas las activas (ignora ventana 2h).
+    return this.orquestador.ejecutar(true);
   }
 
   @Patch(':id')

@@ -14,10 +14,18 @@ export class ClimaOrquestadorService {
     private readonly config: ConfigService,
   ) {}
 
-  /** Construye e invoca el grafo LangGraph. Lo usan el cron y el endpoint /run. */
-  async ejecutar() {
+  /**
+   * Construye e invoca el grafo LangGraph. Lo usan el cron y el endpoint /run.
+   * `forzar=true` (botón "Probar ahora") ignora la ventana de 2h y el anti-dup:
+   * envía a TODAS las alertas activas, para demo/verificación inmediata. El cron
+   * llama sin forzar, respetando la ventana.
+   */
+  async ejecutar(forzar = false) {
     const grafo = construirGrafoClima({
-      getPendientes: () => this.alertaService.findPendientes(),
+      getPendientes: () =>
+        forzar
+          ? this.alertaService.listarActivas()
+          : this.alertaService.findPendientes(),
       fetchClima: (pendientes) => this.fetchClima(pendientes),
       enviar: (pendientes, pronosticos) => this.enviar(pendientes, pronosticos),
     });
@@ -78,6 +86,7 @@ export class ClimaOrquestadorService {
       this.logger.warn('MS_NOTIFICACIONES_URL no configurada; no se envían alertas');
       return 0;
     }
+    const telegramToken = this.config.get<string>('TELEGRAM_BOT_TOKEN');
 
     let enviados = 0;
     for (const a of pendientes) {
@@ -86,9 +95,16 @@ export class ClimaOrquestadorService {
       const msg = this.alertaService.construirMensaje(pronostico);
       try {
         if (a.canal === 'telegram' && a.telegramChatId) {
+          if (!telegramToken) {
+            this.logger.warn(
+              `TELEGRAM_BOT_TOKEN no configurado; no se envía Telegram a ${a.telegramChatId}`,
+            );
+            continue;
+          }
           await axios.post(`${url}/api/enviar-telegram`, {
             chat_id: a.telegramChatId,
             mensaje: `${msg.pronostico}\n${msg.recomendacion}`,
+            token: telegramToken,
           });
         } else {
           await axios.post(`${url}/api/enviar-clima`, {

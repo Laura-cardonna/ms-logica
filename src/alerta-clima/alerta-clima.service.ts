@@ -110,6 +110,11 @@ export class AlertaClimaService {
     await this.alertaRepo.update({ id }, { ultimaNotificacion: cuando });
   }
 
+  /** Todas las alertas activas, sin filtro de ventana ni anti-dup (modo "Probar ahora"). */
+  async listarActivas(): Promise<AlertaClima[]> {
+    return this.alertaRepo.find({ where: { estado: 'activa' } });
+  }
+
   // ---- Helpers puros (testeables sin DB) ----
 
   /** true si `ahora` está dentro de las 2 h previas a `horaViaje` (mismo día). */

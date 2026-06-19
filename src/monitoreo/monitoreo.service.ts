@@ -226,6 +226,13 @@ export class MonitoreoService {
         ? Number(ultima.velocidad)
         : (bus.gps?.velocidad ? Number(bus.gps.velocidad) : 0);
 
+      // Ocupación: pasajeros a bordo (boletos 'activo') vs capacidad de referencia
+      // (capacidadMaxima = sentados+parados; fallback a sentados si la col no existe).
+      const pasajerosActuales = prog.id != null
+        ? await this.contarBoletosActivos(prog.id)
+        : 0;
+      const capacidad = Number(bus.capacidadMaxima ?? bus.capacidadSentados ?? 0);
+
       resultado.push({
         busId,
         placa: bus.placa,
@@ -238,6 +245,8 @@ export class MonitoreoService {
         estaRetrasado: retraso.estaRetrasado,
         minutosRetraso: retraso.minutosRetraso,
         estado: (incidenteReal || retraso.estaRetrasado) ? 'incidente' : 'normal',
+        pasajerosActuales,
+        capacidadMaxima: capacidad,
       });
     }
 
