@@ -51,6 +51,10 @@ export class Mensaje {
     @Column({ name: 'es_urgente', type: 'boolean', default: false })
     esUrgente?: boolean;
 
+    // Fecha de envío programado (si la alerta se agenda para el futuro).
+    @Column({ name: 'programado_para', type: 'timestamp', nullable: true })
+    programadoPara?: Date;
+
     @Column({ name: 'alcance_tipo', type: 'enum', enum: AlcanceAlerta, nullable: true })
     alcanceTipo?: AlcanceAlerta;
 
