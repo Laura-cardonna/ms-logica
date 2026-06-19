@@ -1,9 +1,13 @@
-import { Controller, Post, Get, Body, Param, Query } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Param, Query } from '@nestjs/common';
 import { MensajeService } from './mensaje.service';
+import { MensajeGateway } from './mensaje.gateway';
 
 @Controller('mensajes')
 export class MensajeController {
-  constructor(private readonly mensajeService: MensajeService) {}
+  constructor(
+    private readonly mensajeService: MensajeService,
+    private readonly mensajeGateway: MensajeGateway,
+  ) {}
 
   @Post('enviar-grupo')
   enviarMensaje(
@@ -47,5 +51,24 @@ export class MensajeController {
   async marcarMensajeLeido(@Param('id') id: number) {
     return this.mensajeService.marcarComoLeido(id);
   }
-  
+
+  // ✨ HU-3-005: lista de quién leyó un mensaje de grupo (vista emisor/admin)
+  @Get(':id/lecturas')
+  obtenerLecturas(@Param('id') id: number) {
+    return this.mensajeService.obtenerLecturas(id);
+  }
+
+  // ✨ HU-3-005: borrado por admin (soft-delete). personaId explícito (sin guards,
+  // patrón del controller). El servicio valida rol 'administrador' del grupo.
+  @Delete(':id')
+  async eliminarMensaje(
+    @Param('id') id: number,
+    @Query('personaId') personaId: string,
+  ) {
+    const res = await this.mensajeService.eliminarMensajeGrupo(id, personaId);
+    // Refresco en vivo a la sala del grupo
+    this.mensajeGateway.notificarMensajeEliminado(res.grupoId, res.mensajeId);
+    return res;
+  }
+
 }

@@ -35,4 +35,10 @@ export class Mensaje {
     // ✅ CORRECCIÓN 2: Le quité la "ñ" al final
     @Column({ nullable: true, type: 'text' })
     ubicacion?: string;
+
+    // Soft-delete (HU-3-005): borrado por admin. Columna manual (NO
+    // @DeleteDateColumn) porque el historial mapea relaciones a mano vía
+    // DestinatarioGrupo; filtramos deletedAt explícito en cada query.
+    @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
+    deletedAt?: Date | null;
 }

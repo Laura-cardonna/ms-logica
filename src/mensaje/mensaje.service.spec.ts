@@ -2,8 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { MensajeService } from './mensaje.service';
+import { ForbiddenException } from '@nestjs/common';
 import { Mensaje } from './entities/mensaje.entity';
 import { DestinatarioGrupo } from 'src/destinatario_grupo/entities/destinatario_grupo.entity';
+import { LecturaGrupo } from './entities/lectura_grupo.entity';
 import { GrupoPersona } from 'src/grupo_persona/entities/grupo_persona.entity';
 import { GrupoMembresiaLog } from 'src/grupo/entities/grupo-membresia-log.entity';
 
@@ -19,16 +21,23 @@ const mockRepo = () => ({
 describe('MensajeService', () => {
   let service: MensajeService;
   let mensajeRepo: ReturnType<typeof mockRepo>;
+  let destGrupoRepo: ReturnType<typeof mockRepo>;
+  let lecturaRepo: ReturnType<typeof mockRepo>;
+  let grupoPersonaRepo: ReturnType<typeof mockRepo>;
 
   beforeEach(async () => {
     mensajeRepo = mockRepo();
+    destGrupoRepo = mockRepo();
+    lecturaRepo = mockRepo();
+    grupoPersonaRepo = mockRepo();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MensajeService,
         { provide: getRepositoryToken(Mensaje), useValue: mensajeRepo },
-        { provide: getRepositoryToken(DestinatarioGrupo), useValue: mockRepo() },
-        { provide: getRepositoryToken(GrupoPersona), useValue: mockRepo() },
+        { provide: getRepositoryToken(DestinatarioGrupo), useValue: destGrupoRepo },
+        { provide: getRepositoryToken(LecturaGrupo), useValue: lecturaRepo },
+        { provide: getRepositoryToken(GrupoPersona), useValue: grupoPersonaRepo },
         { provide: getRepositoryToken(GrupoMembresiaLog), useValue: mockRepo() },
       ],
     }).compile();
@@ -149,6 +158,89 @@ describe('MensajeService', () => {
           receptorId: 'r1',
         }),
       );
+    });
+  });
+
+  // ===== HU-3-005: lecturas por miembro =====
+  describe('registrarLecturaGrupo (idempotente)', () => {
+    it('NO duplica si el par (mensaje, persona) ya existe', async () => {
+      lecturaRepo.findOne.mockResolvedValue({ id: 1, mensaje: { id: 5 }, persona: { id: 'p1' } });
+
+      const res = await service.registrarLecturaGrupo(5, 'p1');
+
+      expect(res).toEqual(expect.objectContaining({ id: 1 }));
+      expect(lecturaRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('crea la lectura cuando no existe previa', async () => {
+      lecturaRepo.findOne.mockResolvedValue(null);
+      lecturaRepo.create.mockReturnValue({ mensaje: { id: 5 }, persona: { id: 'p2' } });
+      lecturaRepo.save.mockResolvedValue({ id: 2 });
+
+      const res = await service.registrarLecturaGrupo(5, 'p2');
+
+      expect(lecturaRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ mensaje: { id: 5 }, persona: { id: 'p2' } }),
+      );
+      expect(lecturaRepo.save).toHaveBeenCalledTimes(1);
+      expect(res).toEqual({ id: 2 });
+    });
+  });
+
+  describe('obtenerLecturas', () => {
+    it('devuelve solo lectores con su fecha, en shape plano', async () => {
+      lecturaRepo.find.mockResolvedValue([
+        { persona: { id: 'p1', nombre: 'Ana' }, fechaLeida: new Date('2026-01-01T10:00:00Z') },
+        { persona: { id: 'p2', nombre: 'Luis' }, fechaLeida: new Date('2026-01-01T10:05:00Z') },
+      ]);
+
+      const res = await service.obtenerLecturas(5);
+
+      expect(lecturaRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { mensaje: { id: 5 } }, relations: ['persona'] }),
+      );
+      expect(res).toEqual([
+        expect.objectContaining({ personaId: 'p1', nombre: 'Ana' }),
+        expect.objectContaining({ personaId: 'p2', nombre: 'Luis' }),
+      ]);
+    });
+  });
+
+  // ===== HU-3-005: borrado por admin (soft-delete) =====
+  describe('eliminarMensajeGrupo', () => {
+    it('admin puede: marca deletedAt y devuelve { mensajeId, grupoId }', async () => {
+      destGrupoRepo.findOne.mockResolvedValue({ grupo: { id: 7 } });
+      grupoPersonaRepo.findOne.mockResolvedValue({ rol: 'administrador' });
+      const mensaje: any = { id: 5, deletedAt: null };
+      mensajeRepo.findOne.mockResolvedValue(mensaje);
+      mensajeRepo.save.mockImplementation(async (m: any) => m);
+
+      const res = await service.eliminarMensajeGrupo(5, 'admin1');
+
+      expect(mensaje.deletedAt).toBeInstanceOf(Date);
+      expect(res).toEqual({ mensajeId: 5, grupoId: 7 });
+    });
+
+    it('no-admin es rechazado con ForbiddenException y NO borra', async () => {
+      destGrupoRepo.findOne.mockResolvedValue({ grupo: { id: 7 } });
+      grupoPersonaRepo.findOne.mockResolvedValue({ rol: 'miembro' });
+
+      await expect(service.eliminarMensajeGrupo(5, 'p9')).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mensajeRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('obtenerMensajesPorGrupo (soft-delete)', () => {
+    it('excluye del historial los mensajes con deletedAt', async () => {
+      lecturaRepo.find.mockResolvedValue([]); // conteo de lecturas (HU-3-005)
+      destGrupoRepo.find.mockResolvedValue([
+        { mensaje: { id: 1, contenido: 'visible', emisor: { id: 'e1', nombre: 'Ana' }, fechaEnvio: new Date(), deletedAt: null } },
+        { mensaje: { id: 2, contenido: 'borrado', emisor: { id: 'e1', nombre: 'Ana' }, fechaEnvio: new Date(), deletedAt: new Date() } },
+      ]);
+
+      const res = await service.obtenerMensajesPorGrupo(7);
+
+      expect(res.map(m => m.id)).toEqual([1]);
     });
   });
 });
