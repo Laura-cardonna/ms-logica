@@ -46,4 +46,14 @@ export class Mensaje {
     // DestinatarioGrupo; filtramos deletedAt explícito en cada query.
     @Column({ name: 'deleted_at', type: 'timestamp', nullable: true })
     deletedAt?: Date | null;
+
+    // HU-3-008 (Alerta Masiva): marca de urgencia y alcance de la difusión.
+    @Column({ name: 'es_urgente', type: 'boolean', default: false })
+    esUrgente?: boolean;
+
+    @Column({ name: 'alcance_tipo', type: 'enum', enum: AlcanceAlerta, nullable: true })
+    alcanceTipo?: AlcanceAlerta;
+
+    @Column({ name: 'alcance_id', type: 'varchar', nullable: true })
+    alcanceId?: string;
 }
