@@ -14,20 +14,16 @@ async function bootstrap() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-  app.enableCors();
-
-  // SERVIR ARCHIVOS ESTÁTICOS (Para las fotos de evidencias)
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads/',
+  app.enableCors({
+    origin: [process.env.FRONT_URL || 'http://localhost:4200'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-gps-api-key'],
   });
 
-  app.enableCors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:4200',
-  ],
-  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-gps-api-key'],
-});
+  // SERVIR ARCHIVOS ESTÁTICOS — process.cwd() siempre apunta a la raíz del proyecto
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

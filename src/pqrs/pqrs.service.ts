@@ -25,7 +25,7 @@ export class PqrsService {
         const MAX_IMAGES = 3;
         const imagesToProcess = createPqrsDto.images.slice(0, MAX_IMAGES);
         
-        const uploadDir = path.join(__dirname, '..', '..', 'uploads');
+        const uploadDir = path.join(process.cwd(), 'uploads');
         if (!fs.existsSync(uploadDir)) {
           fs.mkdirSync(uploadDir, { recursive: true });
         }

@@ -61,7 +61,7 @@ export class GrupoService {
 
     // 5. 📁 Lógica de procesamiento de imagen (Subida física)
     if (base64Imagen) {
-      const carpetaDestino = path.join(__dirname, '..', '..', 'uploads');
+      const carpetaDestino = path.join(process.cwd(), 'uploads');
       if (!fs.existsSync(carpetaDestino)) {
         fs.mkdirSync(carpetaDestino, { recursive: true });
       }
