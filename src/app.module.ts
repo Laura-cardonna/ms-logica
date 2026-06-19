@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -35,6 +36,7 @@ import { ReportesModule } from './reportes/reportes.module';
 import { MonitoreoModule } from './monitoreo/monitoreo.module';
 import { NotificacionModule } from './notificacion/notificacion.module';
 import { NotificacionSuscripcionModule } from './notificacion-suscripcion/notificacion-suscripcion.module';
+import { AlertaClimaModule } from './alerta-clima/alerta-clima.module';
 
 @Module({
   imports: [
@@ -42,6 +44,7 @@ import { NotificacionSuscripcionModule } from './notificacion-suscripcion/notifi
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -96,6 +99,7 @@ import { NotificacionSuscripcionModule } from './notificacion-suscripcion/notifi
     MonitoreoModule,
     NotificacionModule,
     NotificacionSuscripcionModule,
+    AlertaClimaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
